@@ -1,0 +1,7 @@
+{
+  "name": "LogiTrack Express",
+  "integrations": {
+    "capacitor": {}
+  },
+  "type": "angular-standalone"
+}
