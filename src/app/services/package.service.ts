@@ -1,4 +1,4 @@
-import { Injectable, signal } from '@angular/core';
+import { Injectable, computed, signal } from '@angular/core';
 
 import { MOCK_PACKAGES } from '../data/packages.mock';
 import type { PackageStatus, WarehousePackage } from '../models/package.model';
@@ -16,6 +16,15 @@ export class PackageService {
 
   /** Lista de paquetes en solo lectura; única vía de acceso al estado. */
   readonly packages = this.packagesState.asReadonly();
+
+  /** Número de paquetes por estado; se recalcula solo cuando cambia la lista. */
+  readonly statusCounts = computed<Record<PackageStatus, number>>(() => {
+    const counts: Record<PackageStatus, number> = { IN_TRANSIT: 0, INSPECTED: 0, REJECTED: 0 };
+    for (const pkg of this.packagesState()) {
+      counts[pkg.status]++;
+    }
+    return counts;
+  });
 
   /**
    * Cambia el estado de un paquete de forma inmutable.

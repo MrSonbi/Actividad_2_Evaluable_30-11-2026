@@ -1,27 +1,101 @@
-#container {
+// Resumen por estado en la cabecera.
+.status-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0;
+  padding: 8px 16px;
+  list-style: none;
+
+  ion-badge {
+    padding: 8px 12px;
+    font-size: 0.875rem;
+  }
+}
+
+// Lista centrada con ancho máximo para que en tablet no se estire de lado a lado.
+.package-list {
+  max-width: 960px;
+  margin-inline: auto;
+}
+
+// Fila de paquete: alta mínima holgada para pulsar con guantes.
+.package {
+  --min-height: 88px;
+  --padding-top: 8px;
+  --padding-bottom: 8px;
+  border-inline-start: 6px solid var(--ion-color-primary);
+
+  &--inspected {
+    border-inline-start-color: var(--ion-color-success);
+  }
+
+  &--rejected {
+    border-inline-start-color: var(--ion-color-danger);
+  }
+}
+
+.package__code {
+  font-weight: 600;
+}
+
+.package__heavy {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-weight: 600;
+}
+
+.package__badges {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+
+  ion-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 6px 10px;
+  }
+}
+
+// Botones deslizantes: superan con margen el mínimo de 44 × 44 px.
+ion-item-option {
+  min-width: 96px;
+  font-size: 0.875rem;
+
+  ion-icon {
+    font-size: 1.5rem;
+  }
+}
+
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 48px 16px;
   text-align: center;
 
-  position: absolute;
-  left: 0;
-  right: 0;
-  top: 50%;
-  transform: translateY(-50%);
+  ion-icon {
+    font-size: 3rem;
+  }
 }
 
-#container strong {
-  font-size: 20px;
-  line-height: 26px;
-}
+// Tablet (≈ 820 px): más aire y texto algo mayor; insignias en fila.
+@media (min-width: 768px) {
+  .package {
+    --padding-start: 24px;
+    --inner-padding-end: 24px;
+  }
 
-#container p {
-  font-size: 16px;
-  line-height: 22px;
+  .package__badges {
+    flex-direction: row;
+    align-items: center;
+  }
 
-  color: #8c8c8c;
-
-  margin: 0;
-}
-
-#container a {
-  text-decoration: none;
+  .status-summary {
+    padding-inline: 24px;
+  }
 }

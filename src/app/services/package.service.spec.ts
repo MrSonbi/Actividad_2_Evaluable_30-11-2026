@@ -50,6 +50,10 @@ describe('PackageService', () => {
         }
       }
     });
+
+    it('statusCounts refleja el recuento inicial (6/3/3)', () => {
+      expect(service.statusCounts()).toEqual({ IN_TRANSIT: 6, INSPECTED: 3, REJECTED: 3 });
+    });
   });
 
   describe('updateStatus', () => {
@@ -84,6 +88,16 @@ describe('PackageService', () => {
 
       expect(service.updateStatus('00000000-0000-4000-8000-000000000000', 'INSPECTED')).toBe(false);
       expect(service.packages()).toBe(before);
+    });
+
+    it('actualiza statusCounts tras un cambio de estado', () => {
+      const target = service.packages().find((pkg) => pkg.status === 'IN_TRANSIT');
+      expect(target).toBeDefined();
+      if (!target) return;
+
+      service.updateStatus(target.id, 'REJECTED');
+
+      expect(service.statusCounts()).toEqual({ IN_TRANSIT: 5, INSPECTED: 3, REJECTED: 4 });
     });
 
     it('con el mismo estado devuelve false y no cambia la referencia', () => {
