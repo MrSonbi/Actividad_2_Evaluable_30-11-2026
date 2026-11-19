@@ -18,6 +18,40 @@ describe('HomePage', () => {
     await fixture.whenStable();
   });
 
+  // Los toasts presentados quedan en document.body; se retiran para que no pasen de un test a otro.
+  afterEach(() => {
+    for (const el of Array.from(document.body.querySelectorAll(':scope > ion-toast'))) {
+      el.remove();
+    }
+  });
+
+  function packageCards(): HTMLElement[] {
+    return Array.from(host.querySelectorAll<HTMLElement>('app-package-card'));
+  }
+
+  /** Tarjeta que muestra el código indicado. */
+  function cardFor(trackingCode: string): HTMLElement {
+    const card = packageCards().find((el) => el.querySelector('.package__code')?.textContent?.trim() === trackingCode);
+    if (!card) throw new Error(`Tarjeta ${trackingCode} no encontrada`);
+    return card;
+  }
+
+  function buttonIn(root: HTMLElement, text: string): HTMLIonButtonElement {
+    const button = Array.from(root.querySelectorAll('ion-button')).find((el) => el.textContent?.includes(text));
+    if (!button) throw new Error(`Botón "${text}" no encontrado`);
+    return button;
+  }
+
+  /**
+   * ion-toast de la página. Se obtiene antes de abrirlo: al presentarse, Ionic lo traslada a `document.body`,
+   * así que la referencia se guarda mientras sigue dentro de la página.
+   */
+  function toast(): HTMLIonToastElement {
+    const el = host.querySelector('ion-toast');
+    if (!el) throw new Error('ion-toast no encontrado');
+    return el;
+  }
+
   function slidingItems(): HTMLElement[] {
     return Array.from(host.querySelectorAll<HTMLElement>('ion-item-sliding'));
   }
@@ -73,6 +107,10 @@ describe('HomePage', () => {
         expect(text).toContain(label);
       }
       expect(text).toContain('Carga pesada');
+    });
+
+    it('renderiza un app-package-card por paquete (12)', () => {
+      expect(packageCards()).toHaveLength(12);
     });
 
     it('solo ofrece acciones deslizantes en los paquetes en tránsito (6)', () => {
@@ -210,7 +248,7 @@ describe('HomePage', () => {
       const row = slidingItems().find((el) => el.textContent?.includes(target.trackingCode));
       expect(row).toBeDefined();
       expect(row?.textContent).toContain('Rechazado');
-      expect(row?.querySelector('ion-item')?.classList).toContain('package--rejected');
+      expect(row?.querySelector('app-package-card')?.classList).toContain('package-card--rejected');
       expect(row?.querySelector('ion-item-options')).toBeNull();
     });
 
@@ -234,6 +272,95 @@ describe('HomePage', () => {
 
       expect(component.statusCounts()).toEqual({ IN_TRANSIT: 6, INSPECTED: 3, REJECTED: 3 });
       expect(host.textContent).toContain('En tránsito: 6');
+    });
+
+    it('pulsar "Rechazar" en una tarjeta actualiza el servicio, el DOM y el resumen', async () => {
+      const service = TestBed.inject(PackageService);
+      const target = component.packages()[0];
+      expect(target.status).toBe('IN_TRANSIT');
+
+      buttonIn(cardFor(target.trackingCode), 'Rechazar').click();
+      await fixture.whenStable();
+
+      expect(service.packages().find((pkg) => pkg.id === target.id)?.status).toBe('REJECTED');
+      const card = cardFor(target.trackingCode);
+      expect(card.classList).toContain('package-card--rejected');
+      expect(card.textContent).toContain('Rechazado');
+      expect(buttonIn(card, 'Rechazar').disabled).toBe(true);
+      expect(card.closest('ion-item-sliding')?.querySelector('ion-item-options')).toBeNull();
+      expect(component.statusCounts()).toEqual({ IN_TRANSIT: 5, INSPECTED: 3, REJECTED: 4 });
+      expect(host.textContent).toContain('En tránsito: 5');
+      expect(host.textContent).toContain('Rechazado: 4');
+    });
+
+    it('la opción deslizante cierra el item y delega en onStatusChange', async () => {
+      const service = TestBed.inject(PackageService);
+      const target = component.packages()[0];
+      const onStatusChange = vi.spyOn(component, 'onStatusChange');
+      const updateStatus = vi.spyOn(service, 'updateStatus');
+
+      const sliding = cardFor(target.trackingCode).closest('ion-item-sliding');
+      const option = Array.from(sliding?.querySelectorAll<HTMLElement>('ion-item-option') ?? []).find((el) =>
+        el.textContent?.includes('Inspeccionar'),
+      );
+      expect(option).toBeDefined();
+      option?.click();
+      await vi.waitFor(() => expect(onStatusChange).toHaveBeenCalledOnce());
+      await fixture.whenStable();
+
+      expect(onStatusChange).toHaveBeenCalledWith({ id: target.id, newStatus: 'INSPECTED' });
+      expect(updateStatus).toHaveBeenCalledOnce();
+      expect(cardFor(target.trackingCode).classList).toContain('package-card--inspected');
+    });
+  });
+
+  describe('toast de confirmación', () => {
+    it('está cerrado al inicio', () => {
+      expect(component.toastOpen()).toBe(false);
+      expect(toast().isOpen).toBe(false);
+    });
+
+    it('se abre con el código y la etiqueta del nuevo estado tras un cambio', async () => {
+      const target = component.packages().find((pkg) => pkg.trackingCode === 'LTK-1634-ES');
+      expect(target?.status).toBe('IN_TRANSIT');
+
+      const toastEl = toast();
+      buttonIn(cardFor('LTK-1634-ES'), 'Inspeccionar').click();
+      await fixture.whenStable();
+
+      expect(component.toastOpen()).toBe(true);
+      expect(component.toastMessage()).toBe('LTK-1634-ES marcado como Inspeccionado');
+      expect(toastEl.isOpen).toBe(true);
+      expect(toastEl.message).toBe('LTK-1634-ES marcado como Inspeccionado');
+      expect(toastEl.duration).toBe(2000);
+      expect(toastEl.position).toBe('bottom');
+    });
+
+    it('no se abre si el estado no cambia o el id no existe', async () => {
+      const service = TestBed.inject(PackageService);
+      const inspected = component.packages().find((pkg) => pkg.status === 'INSPECTED');
+      expect(inspected).toBeDefined();
+      const before = service.packages();
+
+      component.onStatusChange({ id: inspected?.id ?? '', newStatus: 'INSPECTED' });
+      component.onStatusChange({ id: 'no-existe', newStatus: 'REJECTED' });
+      await fixture.whenStable();
+
+      expect(service.packages()).toBe(before);
+      expect(component.toastOpen()).toBe(false);
+      expect(toast().isOpen).toBe(false);
+    });
+
+    it('didDismiss lo marca como cerrado', async () => {
+      const toastEl = toast();
+      buttonIn(cardFor('LTK-1634-ES'), 'Rechazar').click();
+      await fixture.whenStable();
+      expect(component.toastOpen()).toBe(true);
+
+      toastEl.dispatchEvent(new CustomEvent('didDismiss'));
+      await fixture.whenStable();
+
+      expect(component.toastOpen()).toBe(false);
     });
   });
 });

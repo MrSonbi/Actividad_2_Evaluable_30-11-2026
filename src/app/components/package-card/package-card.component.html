@@ -1,0 +1,33 @@
+<div class="package-card__summary">
+  <ion-label>
+    <h2 class="package__code">{{ pkg().trackingCode }}</h2>
+    <p>{{ pkg().destinationHub }}</p>
+    <p>{{ pkg().weightKg | number: '1.0-2' }} kg · {{ pkg().timestamp | date: 'HH:mm' }}</p>
+    @if (isHeavy()) {
+      <p class="package__heavy">
+        <ion-icon name="barbell-outline" aria-hidden="true"></ion-icon>
+        Carga pesada
+      </p>
+    }
+  </ion-label>
+  <div class="package__badges">
+    <ion-badge [color]="priorityDisplay().color">
+      {{ priorityDisplay().label }}
+    </ion-badge>
+    <ion-badge [color]="statusDisplay().color">
+      <ion-icon [name]="statusDisplay().icon" aria-hidden="true"></ion-icon>
+      {{ statusDisplay().label }}
+    </ion-badge>
+  </div>
+</div>
+
+<div class="package-card__actions">
+  <ion-button class="package-card__action" color="success" [disabled]="isInspected()" (click)="markAsInspected()">
+    <ion-icon slot="start" name="checkmark-circle-outline" aria-hidden="true"></ion-icon>
+    Inspeccionar
+  </ion-button>
+  <ion-button class="package-card__action" color="danger" [disabled]="isRejected()" (click)="markAsRejected()">
+    <ion-icon slot="start" name="close-circle-outline" aria-hidden="true"></ion-icon>
+    Rechazar
+  </ion-button>
+</div>

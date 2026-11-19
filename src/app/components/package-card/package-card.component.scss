@@ -1,0 +1,91 @@
+// La tarjeta se dibuja a sí misma (borde por estado, márgenes internos) para verse igual en cualquier contenedor.
+:host {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 88px;
+  padding: 8px 16px;
+  border-inline-start: 6px solid var(--ion-color-primary);
+}
+
+:host(.package-card--inspected) {
+  border-inline-start-color: var(--ion-color-success);
+}
+
+:host(.package-card--rejected) {
+  border-inline-start-color: var(--ion-color-danger);
+}
+
+.package-card__summary {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+
+  ion-label {
+    flex: 1 1 auto;
+    min-width: 0;
+    margin: 0;
+  }
+}
+
+.package__code {
+  font-weight: 600;
+}
+
+.package__heavy {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-weight: 600;
+}
+
+.package__badges {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+
+  ion-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 6px 10px;
+  }
+}
+
+// Acciones: objetivos táctiles de 48 px de alto con 12 px de separación para pulsar con guantes.
+.package-card__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.package-card__action {
+  flex: 1 1 0;
+  min-height: 48px;
+  margin: 0;
+}
+
+// Tablet (≈ 820 px): más aire; insignias en fila y botones alineados a la derecha.
+@media (min-width: 768px) {
+  :host {
+    padding-inline: 24px;
+  }
+
+  .package__badges {
+    flex-direction: row;
+    align-items: center;
+  }
+
+  .package-card__actions {
+    justify-content: flex-end;
+  }
+
+  .package-card__action {
+    flex: 0 0 auto;
+    min-width: 160px;
+  }
+}

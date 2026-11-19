@@ -43,41 +43,17 @@
   <ion-list class="package-list" lines="full">
     @for (pkg of visiblePackages(); track pkg.id) {
       <ion-item-sliding #slidingItem>
-        <ion-item
-          class="package"
-          [class.package--in-transit]="pkg.status === 'IN_TRANSIT'"
-          [class.package--inspected]="pkg.status === 'INSPECTED'"
-          [class.package--rejected]="pkg.status === 'REJECTED'"
-        >
-          <ion-label>
-            <h2 class="package__code">{{ pkg.trackingCode }}</h2>
-            <p>{{ pkg.destinationHub }}</p>
-            <p>{{ pkg.weightKg | number: '1.0-2' }} kg · {{ pkg.timestamp | date: 'HH:mm' }}</p>
-            @if (pkg.weightKg >= heavyLoadKg) {
-              <p class="package__heavy">
-                <ion-icon name="barbell-outline" aria-hidden="true"></ion-icon>
-                Carga pesada
-              </p>
-            }
-          </ion-label>
-          <div slot="end" class="package__badges">
-            <ion-badge [color]="priorityDisplay[pkg.priority].color">
-              {{ priorityDisplay[pkg.priority].label }}
-            </ion-badge>
-            <ion-badge [color]="statusDisplay[pkg.status].color">
-              <ion-icon [name]="statusDisplay[pkg.status].icon" aria-hidden="true"></ion-icon>
-              {{ statusDisplay[pkg.status].label }}
-            </ion-badge>
-          </div>
+        <ion-item class="package-list__item">
+          <app-package-card [pkg]="pkg" (statusChange)="onStatusChange($event)" />
         </ion-item>
 
         @if (pkg.status === 'IN_TRANSIT') {
           <ion-item-options side="end">
-            <ion-item-option color="success" (click)="changeStatus(pkg, 'INSPECTED', slidingItem)">
+            <ion-item-option color="success" (click)="onSlidingOption(pkg.id, 'INSPECTED', slidingItem)">
               <ion-icon slot="top" name="checkmark-circle-outline" aria-hidden="true"></ion-icon>
               Inspeccionar
             </ion-item-option>
-            <ion-item-option color="danger" (click)="changeStatus(pkg, 'REJECTED', slidingItem)">
+            <ion-item-option color="danger" (click)="onSlidingOption(pkg.id, 'REJECTED', slidingItem)">
               <ion-icon slot="top" name="close-circle-outline" aria-hidden="true"></ion-icon>
               Rechazar
             </ion-item-option>
@@ -97,3 +73,11 @@
     }
   </ion-list>
 </ion-content>
+
+<ion-toast
+  [isOpen]="toastOpen()"
+  [message]="toastMessage()"
+  [duration]="2000"
+  position="bottom"
+  (didDismiss)="onToastDismiss()"
+></ion-toast>

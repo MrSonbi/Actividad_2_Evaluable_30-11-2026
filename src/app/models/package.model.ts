@@ -33,3 +33,16 @@ export interface WarehousePackage {
   /** Fecha y hora de registro del paquete. */
   readonly timestamp: Date;
 }
+
+/**
+ * Petición de cambio de estado que una tarjeta de paquete emite hacia su contenedor.
+ *
+ * `newStatus` se tipa como `PackageStatus` (y no como el `string` genérico del enunciado) para que el
+ * compilador rechace cualquier estado inexistente tanto al emitir como al recibir el evento.
+ */
+export interface StatusChangeEvent {
+  /** Identificador del paquete afectado (`WarehousePackage.id`). */
+  readonly id: string;
+  /** Estado solicitado para el paquete. */
+  readonly newStatus: PackageStatus;
+}

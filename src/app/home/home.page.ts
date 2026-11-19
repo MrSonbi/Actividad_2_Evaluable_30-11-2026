@@ -1,4 +1,3 @@
-import { DatePipe, DecimalPipe } from '@angular/common';
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import {
@@ -17,28 +16,18 @@ import {
   IonSegment,
   IonSegmentButton,
   IonTitle,
+  IonToast,
   IonToolbar,
 } from '@ionic/angular';
 import type { SegmentCustomEvent } from '@ionic/angular';
 import { addIcons } from 'ionicons';
-import {
-  barbellOutline,
-  carOutline,
-  checkmarkCircleOutline,
-  closeCircleOutline,
-  fileTrayOutline,
-} from 'ionicons/icons';
+import { checkmarkCircleOutline, closeCircleOutline, fileTrayOutline } from 'ionicons/icons';
 
+import { PackageCardComponent } from '../components/package-card/package-card.component';
 import { PACKAGE_PRIORITIES, PACKAGE_STATUSES } from '../models/package.model';
-import type { PackagePriority, PackageStatus, WarehousePackage } from '../models/package.model';
+import type { PackagePriority, PackageStatus, StatusChangeEvent, WarehousePackage } from '../models/package.model';
 import { PackageService } from '../services/package.service';
-import {
-  HEAVY_LOAD_KG,
-  PRIORITY_DISPLAY,
-  PRIORITY_ORDER,
-  STATUS_DISPLAY,
-  STATUS_ORDER,
-} from '../shared/package-display';
+import { PRIORITY_DISPLAY, PRIORITY_ORDER, STATUS_DISPLAY, STATUS_ORDER } from '../shared/package-display';
 
 /** Filtro de prioridad de la vista: una prioridad concreta o todas. */
 export type PriorityFilter = PackagePriority | 'ALL';
@@ -55,8 +44,6 @@ export function isPriorityFilter(value: unknown): value is PriorityFilter {
   styleUrls: ['home.page.scss'],
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
-    DatePipe,
-    DecimalPipe,
     FormsModule,
     IonBadge,
     IonButton,
@@ -73,7 +60,9 @@ export function isPriorityFilter(value: unknown): value is PriorityFilter {
     IonSegment,
     IonSegmentButton,
     IonTitle,
+    IonToast,
     IonToolbar,
+    PackageCardComponent,
   ],
 })
 export class HomePage {
@@ -128,10 +117,13 @@ export class HomePage {
   readonly priorities = PACKAGE_PRIORITIES;
   readonly statusDisplay = STATUS_DISPLAY;
   readonly priorityDisplay = PRIORITY_DISPLAY;
-  readonly heavyLoadKg = HEAVY_LOAD_KG;
+
+  /** Toast de confirmación tras un cambio de estado. */
+  readonly toastOpen = signal(false);
+  readonly toastMessage = signal('');
 
   constructor() {
-    addIcons({ barbellOutline, carOutline, checkmarkCircleOutline, closeCircleOutline, fileTrayOutline });
+    addIcons({ checkmarkCircleOutline, closeCircleOutline, fileTrayOutline });
   }
 
   /** Aplica la prioridad elegida en el segmento; ignora valores no válidos. */
@@ -148,9 +140,27 @@ export class HomePage {
     this.priorityFilter.set('ALL');
   }
 
-  /** Cierra las opciones deslizantes y aplica el nuevo estado. */
-  async changeStatus(pkg: WarehousePackage, newStatus: PackageStatus, slidingItem: IonItemSliding): Promise<void> {
+  /**
+   * Único punto que escribe en el servicio: lo usan las tarjetas (`statusChange`) y las opciones deslizantes.
+   * Solo confirma con un toast si el estado cambió de verdad.
+   */
+  onStatusChange(event: StatusChangeEvent): void {
+    const pkg = this.packageService.packages().find((item) => item.id === event.id);
+    if (!pkg || !this.packageService.updateStatus(event.id, event.newStatus)) {
+      return;
+    }
+    this.toastMessage.set(`${pkg.trackingCode} marcado como ${STATUS_DISPLAY[event.newStatus].label}`);
+    this.toastOpen.set(true);
+  }
+
+  /** Opción deslizante: cierra el item y delega en `onStatusChange`. */
+  async onSlidingOption(id: string, newStatus: PackageStatus, slidingItem: IonItemSliding): Promise<void> {
     await slidingItem.close();
-    this.packageService.updateStatus(pkg.id, newStatus);
+    this.onStatusChange({ id, newStatus });
+  }
+
+  /** El toast se cerró (por tiempo o gesto): se sincroniza el estado para poder volver a abrirlo. */
+  onToastDismiss(): void {
+    this.toastOpen.set(false);
   }
 }
