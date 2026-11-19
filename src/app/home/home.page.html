@@ -3,68 +3,97 @@
     <ion-title>LogiTrack Express</ion-title>
   </ion-toolbar>
   <ion-toolbar>
-    <ul class="status-summary" aria-label="Resumen de paquetes por estado">
-      @for (status of statuses; track status) {
-      <li>
-        <ion-badge [color]="statusDisplay[status].color">
-          {{ statusDisplay[status].label }}: {{ statusCounts()[status] }}
-        </ion-badge>
-      </li>
+    <ion-segment aria-label="Filtrar por prioridad" [value]="priorityFilter()" (ionChange)="onPriorityChange($event)">
+      <ion-segment-button value="ALL">
+        <ion-label>Todas</ion-label>
+      </ion-segment-button>
+      @for (priority of priorities; track priority) {
+        <ion-segment-button [value]="priority">
+          <ion-label>{{ priorityDisplay[priority].label }}</ion-label>
+        </ion-segment-button>
       }
-    </ul>
+    </ion-segment>
+  </ion-toolbar>
+  <ion-toolbar>
+    <ion-searchbar
+      [(ngModel)]="searchTerm"
+      [debounce]="0"
+      aria-label="Buscar por código de seguimiento"
+      placeholder="Buscar por código (LTK-1042-ES)"
+      inputmode="search"
+      enterkeyhint="search"
+    ></ion-searchbar>
   </ion-toolbar>
 </ion-header>
 
 <ion-content [fullscreen]="true">
-  <ion-list class="package-list" lines="full">
-    @for (pkg of packages(); track pkg.id) {
-    <ion-item-sliding #slidingItem>
-      <ion-item
-        class="package"
-        [class.package--in-transit]="pkg.status === 'IN_TRANSIT'"
-        [class.package--inspected]="pkg.status === 'INSPECTED'"
-        [class.package--rejected]="pkg.status === 'REJECTED'"
-      >
-        <ion-label>
-          <h2 class="package__code">{{ pkg.trackingCode }}</h2>
-          <p>{{ pkg.destinationHub }}</p>
-          <p>{{ pkg.weightKg | number: '1.0-2' }} kg · {{ pkg.timestamp | date: 'HH:mm' }}</p>
-          @if (pkg.weightKg >= heavyLoadKg) {
-          <p class="package__heavy">
-            <ion-icon name="barbell-outline" aria-hidden="true"></ion-icon>
-            Carga pesada
-          </p>
-          }
-        </ion-label>
-        <div slot="end" class="package__badges">
-          <ion-badge [color]="priorityDisplay[pkg.priority].color">
-            {{ priorityDisplay[pkg.priority].label }}
+  <div class="list-header">
+    <ul class="status-summary" aria-label="Resumen de paquetes por estado">
+      @for (status of statuses; track status) {
+        <li>
+          <ion-badge [color]="statusDisplay[status].color">
+            {{ statusDisplay[status].label }}: {{ statusCounts()[status] }}
           </ion-badge>
-          <ion-badge [color]="statusDisplay[pkg.status].color">
-            <ion-icon [name]="statusDisplay[pkg.status].icon" aria-hidden="true"></ion-icon>
-            {{ statusDisplay[pkg.status].label }}
-          </ion-badge>
-        </div>
-      </ion-item>
-
-      @if (pkg.status === 'IN_TRANSIT') {
-      <ion-item-options side="end">
-        <ion-item-option color="success" (click)="changeStatus(pkg, 'INSPECTED', slidingItem)">
-          <ion-icon slot="top" name="checkmark-circle-outline" aria-hidden="true"></ion-icon>
-          Inspeccionar
-        </ion-item-option>
-        <ion-item-option color="danger" (click)="changeStatus(pkg, 'REJECTED', slidingItem)">
-          <ion-icon slot="top" name="close-circle-outline" aria-hidden="true"></ion-icon>
-          Rechazar
-        </ion-item-option>
-      </ion-item-options>
+        </li>
       }
-    </ion-item-sliding>
+    </ul>
+    <p class="result-count" role="status">{{ resultCountLabel() }}</p>
+  </div>
+
+  <ion-list class="package-list" lines="full">
+    @for (pkg of visiblePackages(); track pkg.id) {
+      <ion-item-sliding #slidingItem>
+        <ion-item
+          class="package"
+          [class.package--in-transit]="pkg.status === 'IN_TRANSIT'"
+          [class.package--inspected]="pkg.status === 'INSPECTED'"
+          [class.package--rejected]="pkg.status === 'REJECTED'"
+        >
+          <ion-label>
+            <h2 class="package__code">{{ pkg.trackingCode }}</h2>
+            <p>{{ pkg.destinationHub }}</p>
+            <p>{{ pkg.weightKg | number: '1.0-2' }} kg · {{ pkg.timestamp | date: 'HH:mm' }}</p>
+            @if (pkg.weightKg >= heavyLoadKg) {
+              <p class="package__heavy">
+                <ion-icon name="barbell-outline" aria-hidden="true"></ion-icon>
+                Carga pesada
+              </p>
+            }
+          </ion-label>
+          <div slot="end" class="package__badges">
+            <ion-badge [color]="priorityDisplay[pkg.priority].color">
+              {{ priorityDisplay[pkg.priority].label }}
+            </ion-badge>
+            <ion-badge [color]="statusDisplay[pkg.status].color">
+              <ion-icon [name]="statusDisplay[pkg.status].icon" aria-hidden="true"></ion-icon>
+              {{ statusDisplay[pkg.status].label }}
+            </ion-badge>
+          </div>
+        </ion-item>
+
+        @if (pkg.status === 'IN_TRANSIT') {
+          <ion-item-options side="end">
+            <ion-item-option color="success" (click)="changeStatus(pkg, 'INSPECTED', slidingItem)">
+              <ion-icon slot="top" name="checkmark-circle-outline" aria-hidden="true"></ion-icon>
+              Inspeccionar
+            </ion-item-option>
+            <ion-item-option color="danger" (click)="changeStatus(pkg, 'REJECTED', slidingItem)">
+              <ion-icon slot="top" name="close-circle-outline" aria-hidden="true"></ion-icon>
+              Rechazar
+            </ion-item-option>
+          </ion-item-options>
+        }
+      </ion-item-sliding>
     } @empty {
-    <div class="empty-state">
-      <ion-icon name="file-tray-outline" aria-hidden="true"></ion-icon>
-      <p>No hay paquetes que mostrar</p>
-    </div>
+      <div class="empty-state">
+        <ion-icon name="file-tray-outline" aria-hidden="true"></ion-icon>
+        @if (hasActiveFilters()) {
+          <p>Ningún paquete coincide con los filtros</p>
+          <ion-button fill="outline" (click)="clearFilters()">Limpiar filtros</ion-button>
+        } @else {
+          <p>No hay paquetes que mostrar</p>
+        }
+      </div>
     }
   </ion-list>
 </ion-content>

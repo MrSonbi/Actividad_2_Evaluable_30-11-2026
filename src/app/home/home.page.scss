@@ -1,16 +1,32 @@
-// Resumen por estado en la cabecera.
+// Segmento de prioridad: botones con altura táctil suficiente.
+ion-segment-button {
+  min-height: 44px;
+}
+
+// Resumen por estado y número de resultados, al inicio del contenido.
+.list-header {
+  max-width: 960px;
+  margin-inline: auto;
+  padding: 12px 16px 4px;
+}
+
 .status-summary {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
   margin: 0;
-  padding: 8px 16px;
+  padding: 0;
   list-style: none;
 
   ion-badge {
     padding: 8px 12px;
     font-size: 0.875rem;
   }
+}
+
+.result-count {
+  margin: 12px 0 0;
+  font-size: 0.875rem;
 }
 
 // Lista centrada con ancho máximo para que en tablet no se estire de lado a lado.
@@ -95,7 +111,7 @@ ion-item-option {
     align-items: center;
   }
 
-  .status-summary {
+  .list-header {
     padding-inline: 24px;
   }
 }
