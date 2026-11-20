@@ -1,4 +1,12 @@
-import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  afterNextRender,
+  computed,
+  inject,
+  signal,
+  viewChild,
+} from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import {
   IonBadge,
@@ -28,6 +36,9 @@ import { PACKAGE_PRIORITIES, PACKAGE_STATUSES } from '../models/package.model';
 import type { PackagePriority, PackageStatus, StatusChangeEvent, WarehousePackage } from '../models/package.model';
 import { PackageService } from '../services/package.service';
 import { PRIORITY_DISPLAY, PRIORITY_ORDER, STATUS_DISPLAY, STATUS_ORDER } from '../shared/package-display';
+
+/** Nombre accesible del input interno de ion-searchbar. */
+export const SEARCH_INPUT_LABEL = 'Buscar paquete por código de seguimiento';
 
 /** Filtro de prioridad de la vista: una prioridad concreta o todas. */
 export type PriorityFilter = PackagePriority | 'ALL';
@@ -67,6 +78,9 @@ export function isPriorityFilter(value: unknown): value is PriorityFilter {
 })
 export class HomePage {
   private readonly packageService = inject(PackageService);
+
+  /** Buscador de la cabecera; se usa solo para dar nombre accesible a su input interno. */
+  private readonly searchbar = viewChild.required(IonSearchbar);
 
   /** Texto escrito en el buscador (enlazado con ngModel). */
   readonly searchTerm = signal('');
@@ -124,6 +138,19 @@ export class HomePage {
 
   constructor() {
     addIcons({ checkmarkCircleOutline, closeCircleOutline, fileTrayOutline });
+
+    // ion-searchbar 9.0.12 no traslada el aria-label del host a su input y le fija "search text" (inglés).
+    // Se corrige una sola vez tras el primer render con la API pública getInputElement(): no hay suscripciones
+    // ni listeners que liberar. Stencil no vuelve a escribir el atributo porque su valor en el vDOM no cambia.
+    afterNextRender(() => {
+      void this.labelSearchInput();
+    });
+  }
+
+  /** Nombre accesible en español para el input interno del buscador (WCAG 3.1.2 / 2.5.3). */
+  private async labelSearchInput(): Promise<void> {
+    const input = await this.searchbar().getInputElement();
+    input.setAttribute('aria-label', SEARCH_INPUT_LABEL);
   }
 
   /** Aplica la prioridad elegida en el segmento; ignora valores no válidos. */

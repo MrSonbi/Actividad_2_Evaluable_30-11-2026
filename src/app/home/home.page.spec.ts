@@ -3,7 +3,7 @@ import { TestBed } from '@angular/core/testing';
 
 import { PackageService } from '../services/package.service';
 
-import { HomePage, isPriorityFilter } from './home.page';
+import { HomePage, SEARCH_INPUT_LABEL, isPriorityFilter } from './home.page';
 
 describe('HomePage', () => {
   let component: HomePage;
@@ -76,6 +76,13 @@ describe('HomePage', () => {
     el.value = value;
     el.dispatchEvent(new CustomEvent('ionInput', { detail: { value } }));
     await fixture.whenStable();
+  }
+
+  /** Etiquetas de los hijos directos de ion-list (en minúsculas). */
+  function listChildTags(): string[] {
+    const list = host.querySelector('ion-list');
+    if (!list) throw new Error('ion-list no encontrado');
+    return Array.from(list.children, (el) => el.tagName.toLowerCase());
   }
 
   /** Simula la selección en ion-segment emitiendo `ionChange` desde el propio elemento. */
@@ -234,6 +241,46 @@ describe('HomePage', () => {
       // ngModel devuelve el valor vacío al ion-searchbar.
       expect(searchbar().value).toBe('');
     });
+
+    it('el mensaje y el botón van dentro de un ion-item y ion-list solo tiene elementos de lista', async () => {
+      await typeInSearchbar('9999');
+
+      const item = host.querySelector('ion-list > ion-item');
+      expect(item).not.toBeNull();
+      expect(item?.textContent).toContain('Ningún paquete coincide con los filtros');
+      expect(item?.querySelector('ion-button')?.textContent).toContain('Limpiar filtros');
+      expect(listChildTags()).toEqual(['ion-item']);
+    });
+
+    it('sin filtros y con lista, ion-list solo contiene ion-item-sliding', () => {
+      const tags = listChildTags();
+
+      expect(tags).toHaveLength(12);
+      expect(tags.every((tag) => tag === 'ion-item-sliding')).toBe(true);
+    });
+  });
+
+  describe('accesibilidad', () => {
+    it('tiene exactamente un h1 con el nombre de la app, dentro de ion-title', () => {
+      const headings = host.querySelectorAll('h1');
+
+      expect(headings).toHaveLength(1);
+      expect(headings[0].textContent?.trim()).toBe('LogiTrack Express');
+      expect(headings[0].closest('ion-title')).not.toBeNull();
+    });
+
+    it('las tarjetas siguen usando h2 para el código de seguimiento', () => {
+      const cardHeadings = host.querySelectorAll('app-package-card h2.package__code');
+
+      expect(cardHeadings).toHaveLength(12);
+      expect(host.querySelectorAll('app-package-card h1')).toHaveLength(0);
+    });
+
+    it('el input interno del buscador recibe un aria-label en español', async () => {
+      const input = await searchbar().getInputElement();
+
+      await vi.waitFor(() => expect(input.getAttribute('aria-label')).toBe(SEARCH_INPUT_LABEL));
+    });
   });
 
   describe('cambios de estado', () => {
@@ -332,7 +379,7 @@ describe('HomePage', () => {
       expect(component.toastMessage()).toBe('LTK-1634-ES marcado como Inspeccionado');
       expect(toastEl.isOpen).toBe(true);
       expect(toastEl.message).toBe('LTK-1634-ES marcado como Inspeccionado');
-      expect(toastEl.duration).toBe(2000);
+      expect(toastEl.duration).toBe(4000);
       expect(toastEl.position).toBe('bottom');
     });
 

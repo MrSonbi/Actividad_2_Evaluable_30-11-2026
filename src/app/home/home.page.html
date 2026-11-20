@@ -1,6 +1,6 @@
 <ion-header [translucent]="true">
   <ion-toolbar>
-    <ion-title>LogiTrack Express</ion-title>
+    <ion-title><h1 class="page-title">LogiTrack Express</h1></ion-title>
   </ion-toolbar>
   <ion-toolbar>
     <ion-segment aria-label="Filtrar por prioridad" [value]="priorityFilter()" (ionChange)="onPriorityChange($event)">
@@ -61,15 +61,18 @@
         }
       </ion-item-sliding>
     } @empty {
-      <div class="empty-state">
-        <ion-icon name="file-tray-outline" aria-hidden="true"></ion-icon>
-        @if (hasActiveFilters()) {
-          <p>Ningún paquete coincide con los filtros</p>
-          <ion-button fill="outline" (click)="clearFilters()">Limpiar filtros</ion-button>
-        } @else {
-          <p>No hay paquetes que mostrar</p>
-        }
-      </div>
+      <!-- Envuelto en ion-item (role="listitem"): ion-list solo admite elementos de lista como hijos (WCAG 1.3.1). -->
+      <ion-item class="empty-state__item" lines="none">
+        <div class="empty-state">
+          <ion-icon name="file-tray-outline" aria-hidden="true"></ion-icon>
+          @if (hasActiveFilters()) {
+            <p>Ningún paquete coincide con los filtros</p>
+            <ion-button fill="outline" (click)="clearFilters()">Limpiar filtros</ion-button>
+          } @else {
+            <p>No hay paquetes que mostrar</p>
+          }
+        </div>
+      </ion-item>
     }
   </ion-list>
 </ion-content>
@@ -77,7 +80,7 @@
 <ion-toast
   [isOpen]="toastOpen()"
   [message]="toastMessage()"
-  [duration]="2000"
+  [duration]="4000"
   position="bottom"
   (didDismiss)="onToastDismiss()"
 ></ion-toast>

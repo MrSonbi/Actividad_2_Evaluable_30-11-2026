@@ -63,7 +63,10 @@
   gap: 12px;
 }
 
+// --background-focused-opacity: 0 quita la capa de foco de Ionic (color de contraste al 24 %), que en oscuro
+// deja el texto de «Rechazar» en 3.72:1 (WCAG 1.4.3). El foco se señala con el contorno de global.scss.
 .package-card__action {
+  --background-focused-opacity: 0;
   flex: 1 1 0;
   min-height: 48px;
   margin: 0;

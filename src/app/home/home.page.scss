@@ -1,6 +1,27 @@
+// h1 real dentro de ion-title: anula los márgenes y el tamaño de typography.css para que se vea igual que el
+// texto suelto que había antes; el elipsis se repite aquí porque el de .toolbar-title no alcanza a un bloque hijo.
+.page-title {
+  margin: 0;
+  overflow: hidden;
+  font-size: inherit;
+  font-weight: inherit;
+  line-height: inherit;
+  letter-spacing: inherit;
+  text-overflow: ellipsis;
+}
+
 // Segmento de prioridad: botones con altura táctil suficiente.
+// Sin la capa de foco de Ionic (primary al 12 %): en oscuro deja el botón seleccionado en 4.38:1 (WCAG 1.4.3).
+// El foco se señala con el contorno de global.scss.
 ion-segment-button {
+  --background-focused-opacity: 0;
   min-height: 44px;
+}
+
+// Placeholder del buscador (WCAG 1.4.3): Ionic usa opacity 0.6, que en claro da 4.12:1.
+// Con 0.75 queda en 6.69:1 (claro) y 7.97:1 (oscuro) sobre el fondo del campo.
+ion-searchbar {
+  --placeholder-opacity: 0.75;
 }
 
 // Resumen por estado y número de resultados, al inicio del contenido.
@@ -51,16 +72,31 @@ ion-item-option {
   }
 }
 
+// ion-item del estado vacío: sin relleno propio para que el bloque conserve el aspecto que tenía fuera del item.
+.empty-state__item {
+  --padding-start: 0;
+  --inner-padding-end: 0;
+}
+
 .empty-state {
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 8px;
+  box-sizing: border-box;
+  width: 100%;
   padding: 48px 16px;
   text-align: center;
 
   ion-icon {
     font-size: 3rem;
+  }
+
+  // «Limpiar filtros»: 44 px de alto en lugar de los 36 px de Ionic md (mejora ergonómica, WCAG 2.5.5 AAA).
+  // Sin la capa de foco de Ionic: en oscuro deja el texto en 4.44:1 (WCAG 1.4.3). El contorno de global.scss la sustituye.
+  ion-button {
+    --background-focused-opacity: 0;
+    min-height: 44px;
   }
 }
 

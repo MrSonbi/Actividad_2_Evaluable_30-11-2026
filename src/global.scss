@@ -35,3 +35,62 @@
 /* @import "@ionic/angular/css/palettes/dark.always.css"; */
 /* @import "@ionic/angular/css/palettes/dark.class.css"; */
 @import '@ionic/angular/css/palettes/dark.system.css';
+
+/**
+ * Foco de teclado visible
+ * -----------------------------------------------------
+ * WCAG 2.4.7 Focus Visible (AA) y 1.4.11 Non-text Contrast (AA).
+ * Ionic quita el outline (`outline: none`) y señala el foco solo con una capa translúcida
+ * (de 1.16 a 1.71:1 frente al estado sin foco). Aquí se sustituye por un contorno de 3 px.
+ * Ionic añade `.ion-focused` solo cuando el foco llega desde el teclado, así que el ratón y el
+ * tacto no muestran el contorno.
+ * El color es el del texto (#000 en claro, #fff en oscuro), con #000 de respaldo porque el tema
+ * claro no define --ion-text-color. Contraste con el fondo: 21:1 en claro, de 16.48 a 18.73:1 en oscuro.
+ */
+ion-button.ion-focused::part(native) {
+  outline: 3px solid var(--ion-text-color, #000);
+  outline-offset: 2px;
+}
+
+/*
+ * ion-segment tiene `contain: paint`, que recorta todo lo que sale de sus bordes: el contorno va
+ * hacia dentro (-3px) y queda sobre el fondo del toolbar, igual que con offset positivo.
+ */
+ion-segment-button.ion-focused::part(native) {
+  outline: 3px solid var(--ion-text-color, #000);
+  outline-offset: -3px;
+}
+
+/*
+ * ion-item-sliding tiene `overflow: hidden`, que recortaría un contorno exterior: va hacia dentro,
+ * sobre el fondo de color de la opción. Por eso usa el color de contraste de esa opción
+ * (de 5.95 a 10.78:1 en ambos temas) y no el color del texto.
+ */
+ion-item-option.ion-focused::part(native) {
+  outline: 3px solid var(--ion-color-contrast, var(--ion-text-color, #000));
+  outline-offset: -3px;
+}
+
+/*
+ * Input del buscador: Ionic también le pone `outline: none`. Offset 0: el searchbar solo tiene 3 px
+ * de relleno vertical dentro del toolbar (que tiene `overflow: hidden`), así que el anillo de 3 px
+ * cabe justo sobre el fondo del toolbar.
+ */
+ion-searchbar .searchbar-input:focus-visible {
+  outline: 3px solid var(--ion-text-color, #000);
+  outline-offset: 0;
+}
+
+/**
+ * Botón de borrar del buscador: área táctil de 44 × 44 px.
+ * Mejora ergonómica: WCAG 2.5.5 (AAA en 2.1) y 2.5.8 (AA en 2.2); Lighthouse lo audita como `target-size`.
+ * Ionic lo dibuja con el ancho del icono (22 px) y el alto del campo (42 px). El campo reserva 55 px
+ * a la derecha, así que cabe sin tapar el texto. El selector con dos clases y un elemento supera a la
+ * regla con alcance de Ionic (`.searchbar-clear-button.sc-ion-searchbar-md`) sin usar !important.
+ */
+ion-searchbar .searchbar-input-container .searchbar-clear-button {
+  top: calc(50% - 22px);
+  inset-inline-end: 0;
+  width: 44px;
+  height: 44px;
+}
