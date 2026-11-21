@@ -1,7 +1,12 @@
 import { Injectable, computed, signal } from '@angular/core';
+import type { Observable } from 'rxjs';
+import { defer, delay, of } from 'rxjs';
 
 import { MOCK_PACKAGES } from '../data/packages.mock';
 import type { PackageStatus, WarehousePackage } from '../models/package.model';
+
+/** Latencia simulada de la búsqueda remota `searchTrackingCodes()` (ms). */
+export const SEARCH_LATENCY_MS = 150;
 
 /**
  * Fuente única de verdad de los paquetes del almacén.
@@ -42,5 +47,30 @@ export class PackageService {
       packages.map((pkg) => (pkg.id === id ? { ...pkg, status: newStatus } : pkg)),
     );
     return true;
+  }
+
+  /**
+   * Simula una búsqueda remota por código de seguimiento (en una app real sería una petición HTTP).
+   *
+   * Devuelve un observable frío: la "petición" se lanza al suscribirse, emite UNA vez tras
+   * `SEARCH_LATENCY_MS` ms y se completa. Si el consumidor se desuscribe antes (p. ej. `switchMap` ante un
+   * término nuevo), la respuesta pendiente se descarta.
+   *
+   * Solo devuelve ids, no paquetes: quien lo usa cruza esos ids con `packages()`, que sigue siendo la única
+   * fuente de verdad, así que los cambios de estado posteriores nunca quedan ocultos tras una copia antigua.
+   *
+   * @param term término ya normalizado (sin espacios en los extremos y en minúsculas).
+   * @returns ids de los paquetes cuyo `trackingCode` contiene `term`, sin distinguir mayúsculas.
+   */
+  searchTrackingCodes(term: string): Observable<ReadonlySet<string>> {
+    return defer(() => {
+      const needle = term.toLowerCase();
+      const ids: ReadonlySet<string> = new Set(
+        this.packagesState()
+          .filter((pkg) => pkg.trackingCode.toLowerCase().includes(needle))
+          .map((pkg) => pkg.id),
+      );
+      return of(ids);
+    }).pipe(delay(SEARCH_LATENCY_MS));
   }
 }

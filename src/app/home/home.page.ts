@@ -7,6 +7,7 @@ import {
   signal,
   viewChild,
 } from '@angular/core';
+import { toObservable, toSignal } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
 import {
   IonBadge,
@@ -30,6 +31,8 @@ import {
 import type { SegmentCustomEvent } from '@ionic/angular';
 import { addIcons } from 'ionicons';
 import { checkmarkCircleOutline, closeCircleOutline, fileTrayOutline } from 'ionicons/icons';
+import type { Observable } from 'rxjs';
+import { debounceTime, distinctUntilChanged, map, of, switchMap } from 'rxjs';
 
 import { PackageCardComponent } from '../components/package-card/package-card.component';
 import { PACKAGE_PRIORITIES, PACKAGE_STATUSES } from '../models/package.model';
@@ -39,6 +42,26 @@ import { PRIORITY_DISPLAY, PRIORITY_ORDER, STATUS_DISPLAY, STATUS_ORDER } from '
 
 /** Nombre accesible del input interno de ion-searchbar. */
 export const SEARCH_INPUT_LABEL = 'Buscar paquete por código de seguimiento';
+
+/** Espera tras la última pulsación antes de lanzar la búsqueda (ms). */
+export const SEARCH_DEBOUNCE_MS = 300;
+
+/**
+ * Último resultado de búsqueda aplicado.
+ * `ids` es `null` cuando el término está vacío (no se filtra por búsqueda).
+ */
+export interface SearchResult {
+  readonly term: string;
+  readonly ids: ReadonlySet<string> | null;
+}
+
+/** Resultado inicial: sin búsqueda. */
+const NO_SEARCH: SearchResult = { term: '', ids: null };
+
+/** Normaliza el texto del buscador: sin espacios en los extremos y en minúsculas. */
+export function normalizeSearchTerm(term: string): string {
+  return term.trim().toLowerCase();
+}
 
 /** Filtro de prioridad de la vista: una prioridad concreta o todas. */
 export type PriorityFilter = PackagePriority | 'ALL';
@@ -87,8 +110,32 @@ export class HomePage {
   /** Prioridad seleccionada en el segmento. */
   readonly priorityFilter = signal<PriorityFilter>('ALL');
 
-  /** Término normalizado: sin espacios en los extremos y en minúsculas. */
-  private readonly normalizedTerm = computed(() => this.searchTerm().trim().toLowerCase());
+  /** Término normalizado actual (sin esperar al debounce). */
+  private readonly normalizedTerm = computed(() => normalizeSearchTerm(this.searchTerm()));
+
+  /**
+   * Búsqueda reactiva: del texto escrito al último resultado aplicado.
+   * Se declara como inicializador de campo (contexto de inyección): `toSignal` se suscribe una sola vez y se
+   * desuscribe solo al destruirse la página, sin `subscribe()` manual. Al ser un signal, todos los consumidores
+   * comparten esta única suscripción (no se duplica el pipeline por cada lectura).
+   */
+  private readonly searchResult = toSignal(
+    toObservable(this.searchTerm).pipe(
+      // Mismo criterio de normalización que `normalizedTerm`: "  LTK " y "ltk" son el mismo término.
+      map(normalizeSearchTerm),
+      // Espera a que el usuario deje de teclear: una ráfaga de pulsaciones produce una sola búsqueda.
+      debounceTime(SEARCH_DEBOUNCE_MS),
+      // No repite la búsqueda si el término normalizado no ha cambiado.
+      distinctUntilChanged(),
+      // Cancela la búsqueda en curso al llegar un término nuevo: una respuesta antigua nunca pisa a la reciente.
+      switchMap((term): Observable<SearchResult> =>
+        term
+          ? this.packageService.searchTrackingCodes(term).pipe(map((ids) => ({ term, ids })))
+          : of({ term, ids: null }),
+      ),
+    ),
+    { initialValue: NO_SEARCH },
+  );
 
   /**
    * Cola completa ordenada: primero los pendientes (IN_TRANSIT); dentro de cada grupo, por prioridad
@@ -104,15 +151,23 @@ export class HomePage {
     ),
   );
 
-  /** Paquetes que cumplen el filtro de prioridad y la búsqueda parcial por código (sin distinguir mayúsculas). */
+  /**
+   * Paquetes que cumplen el filtro de prioridad y la búsqueda por código.
+   * Parte siempre de los paquetes EN VIVO del servicio y solo usa los ids del último resultado aplicado, así que
+   * un cambio de estado se refleja al momento. Con el buscador vacío no se filtra por búsqueda (sin esperar).
+   */
   readonly visiblePackages = computed<readonly WarehousePackage[]>(() => {
     const priority = this.priorityFilter();
-    const term = this.normalizedTerm();
+    const matchingIds = this.normalizedTerm() === '' ? null : this.searchResult().ids;
     return this.packages().filter(
-      (pkg) =>
-        (priority === 'ALL' || pkg.priority === priority) &&
-        (term === '' || pkg.trackingCode.toLowerCase().includes(term)),
+      (pkg) => (priority === 'ALL' || pkg.priority === priority) && (matchingIds === null || matchingIds.has(pkg.id)),
     );
+  });
+
+  /** Hay un término escrito cuyo resultado todavía no se ha aplicado (debounce o búsqueda en curso). */
+  readonly isSearching = computed(() => {
+    const term = this.normalizedTerm();
+    return term !== '' && term !== this.searchResult().term;
   });
 
   /** Indica si algún filtro está reduciendo la lista. */
@@ -123,6 +178,12 @@ export class HomePage {
     const count = this.resultCount();
     return `${count} ${count === 1 ? 'paquete' : 'paquetes'}`;
   });
+
+  /**
+   * Texto de la región role="status". Queda vacío mientras se busca (vaciarla no se anuncia) y recibe el
+   * recuento al aplicarse el resultado: un único anuncio por búsqueda, nunca uno por tecla (M8).
+   */
+  readonly resultAnnouncement = computed(() => (this.isSearching() ? '' : this.resultCountLabel()));
 
   /** Recuentos globales por estado (no dependen de los filtros). */
   readonly statusCounts = this.packageService.statusCounts;

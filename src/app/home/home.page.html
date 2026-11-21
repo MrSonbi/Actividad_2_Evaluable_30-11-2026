@@ -37,7 +37,13 @@
         </li>
       }
     </ul>
-    <p class="result-count" role="status">{{ resultCountLabel() }}</p>
+    <!-- Solo el recuento final es región viva; "Buscando…" es un indicador visual que no se anuncia (M8). -->
+    <p class="result-count">
+      <span role="status">{{ resultAnnouncement() }}</span>
+      @if (isSearching()) {
+        <span class="result-count__searching">Buscando…</span>
+      }
+    </p>
   </div>
 
   <ion-list class="package-list" lines="full">

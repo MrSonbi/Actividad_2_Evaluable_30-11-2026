@@ -1,9 +1,10 @@
 import { TestBed } from '@angular/core/testing';
+import { finalize, firstValueFrom, lastValueFrom, tap } from 'rxjs';
 
 import { PACKAGE_PRIORITIES, PACKAGE_STATUSES, TRACKING_CODE_PATTERN } from '../models/package.model';
 import type { PackageStatus, WarehousePackage } from '../models/package.model';
 
-import { PackageService } from './package.service';
+import { PackageService, SEARCH_LATENCY_MS } from './package.service';
 
 const UUID_V4_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
@@ -105,6 +106,70 @@ describe('PackageService', () => {
       const target = before[0];
 
       expect(service.updateStatus(target.id, target.status)).toBe(false);
+      expect(service.packages()).toBe(before);
+    });
+  });
+
+  describe('searchTrackingCodes', () => {
+    beforeEach(() => {
+      vi.useFakeTimers();
+    });
+
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    function idOf(trackingCode: string): string | undefined {
+      return service.packages().find((pkg) => pkg.trackingCode === trackingCode)?.id;
+    }
+
+    it('devuelve los ids cuyo trackingCode contiene el término, sin distinguir mayúsculas', async () => {
+      const result = firstValueFrom(service.searchTrackingCodes('ltk-10'));
+      await vi.advanceTimersByTimeAsync(SEARCH_LATENCY_MS);
+
+      expect(await result).toEqual(new Set([idOf('LTK-1042-ES')]));
+    });
+
+    it('un término que coincide con varios códigos devuelve todos sus ids', async () => {
+      const result = firstValueFrom(service.searchTrackingCodes('20'));
+      await vi.advanceTimersByTimeAsync(SEARCH_LATENCY_MS);
+
+      expect(await result).toEqual(new Set([idOf('LTK-1203-ES'), idOf('LTK-2013-ES')]));
+    });
+
+    it('sin coincidencias devuelve un conjunto vacío', async () => {
+      const result = firstValueFrom(service.searchTrackingCodes('9999'));
+      await vi.advanceTimersByTimeAsync(SEARCH_LATENCY_MS);
+
+      expect((await result).size).toBe(0);
+    });
+
+    it('emite una sola vez tras SEARCH_LATENCY_MS y se completa', async () => {
+      const emissions: ReadonlySet<string>[] = [];
+      let completed = false;
+      const done = lastValueFrom(
+        service.searchTrackingCodes('1042').pipe(
+          tap((ids) => emissions.push(ids)),
+          finalize(() => (completed = true)),
+        ),
+      );
+
+      await vi.advanceTimersByTimeAsync(SEARCH_LATENCY_MS - 1);
+      expect(emissions).toHaveLength(0);
+      expect(completed).toBe(false);
+
+      await vi.advanceTimersByTimeAsync(1);
+      await done;
+      expect(emissions).toHaveLength(1);
+      expect(completed).toBe(true);
+    });
+
+    it('no modifica el estado del servicio', async () => {
+      const before = service.packages();
+      const result = firstValueFrom(service.searchTrackingCodes('ltk'));
+      await vi.advanceTimersByTimeAsync(SEARCH_LATENCY_MS);
+
+      expect((await result).size).toBe(12);
       expect(service.packages()).toBe(before);
     });
   });

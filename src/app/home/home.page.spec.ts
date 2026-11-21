@@ -1,9 +1,19 @@
+/**
+ * Reloj: Vitest fake timers. `debounceTime` y `delay` usan el `asyncScheduler` de RxJS (setInterval) y el
+ * planificador zoneless de Angular usa setTimeout/rAF; todo queda bajo el reloj simulado. Por eso no se usa
+ * `fixture.whenStable()` (esperaría a timers que nadie avanza): `settle()` avanza el reloj y sincroniza la vista.
+ */
 import type { ComponentFixture } from '@angular/core/testing';
 import { TestBed } from '@angular/core/testing';
+import type { Observable } from 'rxjs';
+import { delay, finalize, of, tap } from 'rxjs';
 
-import { PackageService } from '../services/package.service';
+import { PackageService, SEARCH_LATENCY_MS } from '../services/package.service';
 
-import { HomePage, SEARCH_INPUT_LABEL, isPriorityFilter } from './home.page';
+import { HomePage, SEARCH_DEBOUNCE_MS, SEARCH_INPUT_LABEL, isPriorityFilter } from './home.page';
+
+/** Tiempo hasta que se aplica una búsqueda con la latencia normal del servicio. */
+const SEARCH_SETTLE_MS = SEARCH_DEBOUNCE_MS + SEARCH_LATENCY_MS;
 
 describe('HomePage', () => {
   let component: HomePage;
@@ -11,19 +21,29 @@ describe('HomePage', () => {
   let host: HTMLElement;
 
   beforeEach(async () => {
+    vi.useFakeTimers();
     await TestBed.configureTestingModule({ imports: [HomePage] }).compileComponents();
     fixture = TestBed.createComponent(HomePage);
     component = fixture.componentInstance;
     host = fixture.nativeElement;
-    await fixture.whenStable();
+    await settle();
   });
 
-  // Los toasts presentados quedan en document.body; se retiran para que no pasen de un test a otro.
   afterEach(() => {
+    vi.useRealTimers();
+    // Los toasts presentados quedan en document.body; se retiran para que no pasen de un test a otro.
     for (const el of Array.from(document.body.querySelectorAll(':scope > ion-toast'))) {
       el.remove();
     }
   });
+
+  /** Avanza el reloj simulado (timers y microtareas) y sincroniza la vista si la página sigue viva. */
+  async function settle(ms = 0): Promise<void> {
+    await vi.advanceTimersByTimeAsync(ms);
+    if (!fixture.componentRef.hostView.destroyed) {
+      fixture.detectChanges();
+    }
+  }
 
   function packageCards(): HTMLElement[] {
     return Array.from(host.querySelectorAll<HTMLElement>('app-package-card'));
@@ -69,13 +89,29 @@ describe('HomePage', () => {
 
   /**
    * Simula la escritura en ion-searchbar: el value accessor de Ionic escucha `ionInput` y lee `target.value`,
-   * que es exactamente lo que hace el componente real al teclear.
+   * que es exactamente lo que hace el componente real al teclear. Solo sincroniza la vista (sin avanzar el reloj):
+   * cada test decide cuánto tiempo pasa.
    */
   async function typeInSearchbar(value: string): Promise<void> {
     const el = searchbar();
     el.value = value;
     el.dispatchEvent(new CustomEvent('ionInput', { detail: { value } }));
-    await fixture.whenStable();
+    await settle();
+  }
+
+  /** Escribe un término y espera a que su resultado se aplique (debounce + latencia del servicio). */
+  async function searchFor(value: string): Promise<void> {
+    await typeInSearchbar(value);
+    await settle(SEARCH_SETTLE_MS);
+  }
+
+  /** Texto de la región viva (role="status") que anuncia el recuento. */
+  function announcedText(): string {
+    return host.querySelector('[role="status"]')?.textContent?.trim() ?? '';
+  }
+
+  function searchingIndicator(): Element | null {
+    return host.querySelector('.result-count__searching');
   }
 
   /** Etiquetas de los hijos directos de ion-list (en minúsculas). */
@@ -90,7 +126,7 @@ describe('HomePage', () => {
     const el = host.querySelector('ion-segment');
     if (!el) throw new Error('ion-segment no encontrado');
     el.dispatchEvent(new CustomEvent('ionChange', { detail: { value } }));
-    await fixture.whenStable();
+    await settle();
   }
 
   describe('render básico', () => {
@@ -190,7 +226,7 @@ describe('HomePage', () => {
 
   describe('búsqueda por trackingCode', () => {
     it.each(['1042', 'ltk-10', '  LTK-1042-es  '])('"%s" encuentra LTK-1042-ES', async (term) => {
-      await typeInSearchbar(term);
+      await searchFor(term);
 
       expect(component.searchTerm()).toBe(term);
       expect(renderedCodes()).toEqual(['LTK-1042-ES']);
@@ -199,7 +235,7 @@ describe('HomePage', () => {
     });
 
     it('un término inexistente da 0 resultados', async () => {
-      await typeInSearchbar('9999');
+      await searchFor('9999');
 
       expect(component.resultCount()).toBe(0);
       expect(slidingItems()).toHaveLength(0);
@@ -213,7 +249,7 @@ describe('HomePage', () => {
     });
 
     it('se combina con el filtro de prioridad', async () => {
-      await typeInSearchbar('20');
+      await searchFor('20');
       expect(renderedCodes().sort()).toEqual(['LTK-1203-ES', 'LTK-2013-ES']);
 
       await selectSegment('STANDARD');
@@ -224,7 +260,7 @@ describe('HomePage', () => {
   describe('estado vacío', () => {
     it('con filtros activos ofrece limpiarlos y al pulsar vuelven los 12', async () => {
       await selectSegment('LOW');
-      await typeInSearchbar('no-existe');
+      await searchFor('no-existe');
 
       expect(host.textContent).toContain('Ningún paquete coincide con los filtros');
       expect(host.textContent).not.toContain('No hay paquetes que mostrar');
@@ -233,7 +269,7 @@ describe('HomePage', () => {
       const button = host.querySelector<HTMLElement>('.empty-state ion-button');
       expect(button?.textContent).toContain('Limpiar filtros');
       button?.click();
-      await fixture.whenStable();
+      await settle();
 
       expect(component.searchTerm()).toBe('');
       expect(component.priorityFilter()).toBe('ALL');
@@ -243,7 +279,7 @@ describe('HomePage', () => {
     });
 
     it('el mensaje y el botón van dentro de un ion-item y ion-list solo tiene elementos de lista', async () => {
-      await typeInSearchbar('9999');
+      await searchFor('9999');
 
       const item = host.querySelector('ion-list > ion-item');
       expect(item).not.toBeNull();
@@ -290,7 +326,7 @@ describe('HomePage', () => {
       expect(target.status).toBe('IN_TRANSIT');
 
       expect(service.updateStatus(target.id, 'REJECTED')).toBe(true);
-      await fixture.whenStable();
+      await settle();
 
       const row = slidingItems().find((el) => el.textContent?.includes(target.trackingCode));
       expect(row).toBeDefined();
@@ -304,7 +340,7 @@ describe('HomePage', () => {
       const target = component.packages()[0];
 
       service.updateStatus(target.id, 'INSPECTED');
-      await fixture.whenStable();
+      await settle();
 
       const queue = component.packages();
       expect(queue.slice(0, 5).every((pkg) => pkg.status === 'IN_TRANSIT')).toBe(true);
@@ -327,7 +363,7 @@ describe('HomePage', () => {
       expect(target.status).toBe('IN_TRANSIT');
 
       buttonIn(cardFor(target.trackingCode), 'Rechazar').click();
-      await fixture.whenStable();
+      await settle();
 
       expect(service.packages().find((pkg) => pkg.id === target.id)?.status).toBe('REJECTED');
       const card = cardFor(target.trackingCode);
@@ -353,7 +389,7 @@ describe('HomePage', () => {
       expect(option).toBeDefined();
       option?.click();
       await vi.waitFor(() => expect(onStatusChange).toHaveBeenCalledOnce());
-      await fixture.whenStable();
+      await settle();
 
       expect(onStatusChange).toHaveBeenCalledWith({ id: target.id, newStatus: 'INSPECTED' });
       expect(updateStatus).toHaveBeenCalledOnce();
@@ -373,7 +409,7 @@ describe('HomePage', () => {
 
       const toastEl = toast();
       buttonIn(cardFor('LTK-1634-ES'), 'Inspeccionar').click();
-      await fixture.whenStable();
+      await settle();
 
       expect(component.toastOpen()).toBe(true);
       expect(component.toastMessage()).toBe('LTK-1634-ES marcado como Inspeccionado');
@@ -391,7 +427,7 @@ describe('HomePage', () => {
 
       component.onStatusChange({ id: inspected?.id ?? '', newStatus: 'INSPECTED' });
       component.onStatusChange({ id: 'no-existe', newStatus: 'REJECTED' });
-      await fixture.whenStable();
+      await settle();
 
       expect(service.packages()).toBe(before);
       expect(component.toastOpen()).toBe(false);
@@ -401,13 +437,185 @@ describe('HomePage', () => {
     it('didDismiss lo marca como cerrado', async () => {
       const toastEl = toast();
       buttonIn(cardFor('LTK-1634-ES'), 'Rechazar').click();
-      await fixture.whenStable();
+      await settle();
       expect(component.toastOpen()).toBe(true);
 
       toastEl.dispatchEvent(new CustomEvent('didDismiss'));
-      await fixture.whenStable();
+      await settle();
 
       expect(component.toastOpen()).toBe(false);
+    });
+  });
+
+  describe('búsqueda reactiva con RxJS (corrige ia/original)', () => {
+    let service: PackageService;
+
+    beforeEach(() => {
+      service = TestBed.inject(PackageService);
+    });
+
+    function idOf(trackingCode: string): string {
+      const pkg = service.packages().find((item) => item.trackingCode === trackingCode);
+      if (!pkg) throw new Error(`Paquete ${trackingCode} no encontrado`);
+      return pkg.id;
+    }
+
+    /** Respuesta simulada de búsqueda con la latencia indicada (sustituto controlable de searchTrackingCodes). */
+    function idsWithLatency(term: string, ms: number): Observable<ReadonlySet<string>> {
+      const ids: ReadonlySet<string> = new Set(
+        service
+          .packages()
+          .filter((pkg) => pkg.trackingCode.toLowerCase().includes(term))
+          .map((pkg) => pkg.id),
+      );
+      return of(ids).pipe(delay(ms));
+    }
+
+    it('1. la lista no se filtra antes de los 300 ms de debounce y sí cuando llega el resultado', async () => {
+      const search = vi.spyOn(service, 'searchTrackingCodes');
+      await typeInSearchbar('1042');
+
+      await settle(SEARCH_DEBOUNCE_MS - 1);
+      expect(search).not.toHaveBeenCalled();
+      expect(slidingItems()).toHaveLength(12);
+
+      await settle(1);
+      expect(search).toHaveBeenCalledExactlyOnceWith('1042');
+      expect(slidingItems()).toHaveLength(12); // la "petición" sigue en curso
+
+      await settle(SEARCH_LATENCY_MS);
+      expect(renderedCodes()).toEqual(['LTK-1042-ES']);
+    });
+
+    it('2. escribir rápido varios caracteres provoca una sola llamada a searchTrackingCodes (debounceTime)', async () => {
+      const search = vi.spyOn(service, 'searchTrackingCodes');
+
+      for (const partial of ['l', 'lt', 'ltk', 'ltk-', 'ltk-1', 'ltk-10', 'ltk-104']) {
+        await typeInSearchbar(partial);
+        await settle(100); // menos que la ventana de debounce
+      }
+      await settle(SEARCH_SETTLE_MS);
+
+      expect(search).toHaveBeenCalledExactlyOnceWith('ltk-104');
+      expect(renderedCodes()).toEqual(['LTK-1042-ES']);
+    });
+
+    it('3. repetir el mismo término normalizado (espacios o mayúsculas) no provoca otra llamada (distinctUntilChanged)', async () => {
+      const search = vi.spyOn(service, 'searchTrackingCodes');
+      await searchFor('ltk-1042');
+      expect(search).toHaveBeenCalledOnce();
+
+      await searchFor('  LTK-1042 ');
+      await searchFor('Ltk-1042');
+
+      expect(search).toHaveBeenCalledOnce();
+      expect(component.isSearching()).toBe(false);
+      expect(renderedCodes()).toEqual(['LTK-1042-ES']);
+    });
+
+    it('4. con una primera búsqueda lenta y una segunda rápida, el resultado final es el del último término (switchMap)', async () => {
+      const latencies = [1000, 50];
+      const search = vi
+        .spyOn(service, 'searchTrackingCodes')
+        .mockImplementation((term) => idsWithLatency(term, latencies.shift() ?? 0));
+
+      await typeInSearchbar('1042');
+      await settle(SEARCH_DEBOUNCE_MS + 100); // la respuesta lenta de "1042" está en vuelo
+      await typeInSearchbar('1187');
+      await settle(SEARCH_DEBOUNCE_MS + 50);
+      expect(renderedCodes()).toEqual(['LTK-1187-ES']);
+
+      await settle(5_000); // tiempo de sobra para que la respuesta antigua hubiera llegado
+      expect(search).toHaveBeenCalledTimes(2);
+      expect(renderedCodes()).toEqual(['LTK-1187-ES']);
+    });
+
+    it('5. con una búsqueda activa, updateStatus() se refleja al momento en la lista filtrada (corrige c1)', async () => {
+      await searchFor('1634');
+      expect(renderedCodes()).toEqual(['LTK-1634-ES']);
+      expect(cardFor('LTK-1634-ES').textContent).toContain('En tránsito');
+      const search = vi.spyOn(service, 'searchTrackingCodes');
+
+      expect(service.updateStatus(idOf('LTK-1634-ES'), 'REJECTED')).toBe(true);
+      await settle(); // sin avanzar el reloj ni repetir la búsqueda
+
+      const card = cardFor('LTK-1634-ES');
+      expect(card.textContent).toContain('Rechazado');
+      expect(card.classList).toContain('package-card--rejected');
+      expect(search).not.toHaveBeenCalled();
+    });
+
+    it('6. la lista completa aparece en el primer render sin esperar al debounce (corrige d1)', () => {
+      // beforeEach solo ha creado la página y sincronizado la vista: el reloj no ha avanzado.
+      expect(slidingItems()).toHaveLength(12);
+      expect(announcedText()).toBe('12 paquetes');
+      expect(searchingIndicator()).toBeNull();
+      expect(component.isSearching()).toBe(false);
+    });
+
+    it('7. al limpiar filtros, la lista completa vuelve sin esperar', async () => {
+      await selectSegment('LOW');
+      await searchFor('1042');
+      expect(slidingItems()).toHaveLength(0);
+      const search = vi.spyOn(service, 'searchTrackingCodes');
+
+      component.clearFilters();
+      await settle(); // sin avanzar el reloj
+
+      expect(slidingItems()).toHaveLength(12);
+      expect(announcedText()).toBe('12 paquetes');
+      expect(search).not.toHaveBeenCalled();
+    });
+
+    it('8. mientras la búsqueda está pendiente se ve "Buscando…" y el recuento solo se anuncia al aplicarse (M8)', async () => {
+      expect(host.querySelectorAll('[role="status"]')).toHaveLength(1);
+      expect(announcedText()).toBe('12 paquetes');
+
+      for (const partial of ['1', '10', '104', '1042']) {
+        await typeInSearchbar(partial);
+        // Indicador visual fuera de la región viva; la región queda vacía (vaciarla no se anuncia).
+        expect(searchingIndicator()?.textContent?.trim()).toBe('Buscando…');
+        expect(searchingIndicator()?.closest('[role="status"]')).toBeNull();
+        expect(announcedText()).toBe('');
+        await settle(100);
+      }
+
+      await settle(SEARCH_DEBOUNCE_MS); // debounce cumplido, petición en curso
+      expect(searchingIndicator()).not.toBeNull();
+      expect(announcedText()).toBe('');
+
+      await settle(SEARCH_LATENCY_MS);
+      expect(searchingIndicator()).toBeNull();
+      expect(announcedText()).toBe('1 paquete');
+    });
+
+    it('9. tras destruir la página, cambiar el término y avanzar el reloj no llama a searchTrackingCodes (sin fugas)', async () => {
+      const search = vi.spyOn(service, 'searchTrackingCodes');
+
+      fixture.destroy();
+      component.searchTerm.set('1042');
+      await settle(10_000);
+
+      expect(search).not.toHaveBeenCalled();
+    });
+
+    it('destruir la página con una búsqueda en vuelo la cancela: se ejecuta el teardown y no llega respuesta', async () => {
+      let tornDown = false;
+      let emitted = false;
+      vi.spyOn(service, 'searchTrackingCodes').mockImplementation((term) =>
+        idsWithLatency(term, 1000).pipe(
+          tap(() => (emitted = true)),
+          finalize(() => (tornDown = true)),
+        ),
+      );
+      await typeInSearchbar('1042');
+      await settle(SEARCH_DEBOUNCE_MS + 100); // petición en vuelo
+
+      fixture.destroy();
+      await settle(10_000);
+
+      expect(tornDown).toBe(true);
+      expect(emitted).toBe(false);
     });
   });
 });
