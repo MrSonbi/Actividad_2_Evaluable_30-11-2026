@@ -1,2 +1,108 @@
-// For information on how to create your own theme, please refer to:
+// Sistema visual «Turno de día / Turno de noche».
 // https://ionicframework.com/docs/theming/
+//
+// Tokens propios con prefijo --lt- y su mapeo a las variables de Ionic. El turno de día es el valor por defecto
+// (:root); el de noche se activa con la clase `ion-palette-dark` en <html>, la misma que usa la paleta oscura de
+// Ionic (dark.class.css), y la aplica ThemeService.
+//
+// Contrastes comprobados con un script de node componiendo cada cristal sobre el peor punto del cielo (arriba,
+// abajo y el máximo del brillo): todos los textos ≥ 4.5:1, iconos, marcas de estado y anillo de foco ≥ 3:1.
+// Si algo no llega, se ajusta el token, no la regla que lo usa.
+
+:root {
+  // Tipografía: Instrument Sans autoalojada (paquete @fontsource-variable/instrument-sans, ver global.scss).
+  --ion-font-family: 'Instrument Sans Variable', 'Instrument Sans', system-ui, sans-serif;
+
+  // ---- Turno de día: amanecer cálido ----
+  --lt-sky-top: #f4efe2;
+  --lt-sky-bottom: #d6e4f0;
+  --lt-glow: rgba(255, 214, 165, 0.55);
+  --lt-glow-position: 15% 0%;
+  // Cielo completo (brillo radial + degradado vertical). Se declara una vez: en noche se recalcula con los tokens
+  // de noche porque ambos selectores se aplican al mismo elemento (<html>).
+  --lt-sky: radial-gradient(ellipse 70% 55% at var(--lt-glow-position), var(--lt-glow), transparent 70%),
+    linear-gradient(180deg, var(--lt-sky-top), var(--lt-sky-bottom));
+
+  --lt-ink: #14202f;
+  --lt-soft: #3a4859;
+  --lt-muted: #526072;
+
+  --lt-surface: rgba(255, 255, 255, 0.72);
+  --lt-surface-strong: rgba(255, 255, 255, 0.62);
+  --lt-field: rgba(255, 255, 255, 0.78);
+  --lt-toast: rgba(255, 255, 255, 0.94);
+  --lt-border: rgba(20, 32, 47, 0.12);
+  --lt-glass-border: rgba(255, 255, 255, 0.85);
+  --lt-shadow: 0 8px 24px rgba(20, 32, 47, 0.08);
+
+  --lt-accent: #e2ee9f;
+  --lt-accent-soft: #f7f8dc;
+  --lt-accent-gradient: linear-gradient(180deg, var(--lt-accent-soft), var(--lt-accent));
+  --lt-accent-ink: #1c2316;
+
+  // Marcas de estado (barra lateral de la tarjeta y punto del resumen): ≥ 3:1 sobre el cristal.
+  // El verde de Ionic (#2dd55b) se queda en 1.80:1 sobre el cristal de día, así que el día usa un verde más oscuro.
+  --lt-mark-transit: var(--ion-color-primary);
+  --lt-mark-inspected: #1a7f37;
+  --lt-mark-rejected: var(--ion-color-danger);
+
+  --lt-focus-ring: var(--lt-ink);
+
+  // ---- Mapeo a Ionic ----
+  --ion-background-color: #f4efe2;
+  --ion-background-color-rgb: 244, 239, 226;
+  --ion-text-color: #14202f;
+  --ion-text-color-rgb: 20, 32, 47;
+  --ion-toolbar-background: transparent;
+  --ion-toolbar-color: var(--lt-ink);
+  --ion-toolbar-border-color: transparent;
+  --ion-item-background: transparent;
+  --ion-item-color: var(--lt-ink);
+  --ion-placeholder-color: var(--lt-soft);
+
+  // Colores de estado: los de Ionic en claro cumplen con su color de contraste (de 5.90 a 13.15:1).
+  // Azul = en tránsito, verde = inspeccionado, rojo = rechazado.
+}
+
+// Noche: la especificidad (0,2,0) iguala la de `.ion-palette-dark.md` / `.ion-palette-dark.ios` de Ionic y este
+// archivo se carga después de global.scss (angular.json), así que estos valores prevalecen.
+:root.ion-palette-dark {
+  // ---- Turno de noche: cielo profundo con brillo ámbar abajo a la derecha ----
+  --lt-sky-top: #0b1426;
+  --lt-sky-bottom: #142a4f;
+  --lt-glow: rgba(255, 168, 82, 0.22);
+  --lt-glow-position: 100% 100%;
+
+  --lt-ink: #ffffff;
+  --lt-soft: #dfe5ee;
+  // Tercer nivel: #aab6c6 daba 4.51:1 en el peor punto del cielo (centro del brillo ámbar); #b8c3d1 da 5.19:1 y
+  // sigue un escalón por debajo de soft (1.41:1 entre ambos).
+  --lt-muted: #b8c3d1;
+
+  --lt-surface: rgba(23, 38, 68, 0.72);
+  --lt-surface-strong: rgba(11, 20, 38, 0.72);
+  --lt-field: rgba(255, 255, 255, 0.1);
+  --lt-toast: rgba(20, 34, 62, 0.95);
+  --lt-border: rgba(255, 255, 255, 0.14);
+  --lt-glass-border: rgba(255, 255, 255, 0.18);
+  --lt-shadow: 0 8px 24px rgba(0, 0, 0, 0.32);
+
+  --lt-mark-inspected: var(--ion-color-success);
+
+  --ion-background-color: #0b1426;
+  --ion-background-color-rgb: 11, 20, 38;
+  --ion-text-color: #ffffff;
+  --ion-text-color-rgb: 255, 255, 255;
+  --ion-toolbar-background: transparent;
+  --ion-toolbar-border-color: transparent;
+  --ion-item-background: transparent;
+
+  // Primary de noche más claro que el de Ionic (#4d8dff): como texto de «Limpiar filtros» sobre el cristal daba
+  // 4.17:1; con #6ea2ff queda en 5.26:1, y el negro sobre él sube de 6.57 a 8.28:1.
+  --ion-color-primary: #6ea2ff;
+  --ion-color-primary-rgb: 110, 162, 255;
+  --ion-color-primary-contrast: #000000;
+  --ion-color-primary-contrast-rgb: 0, 0, 0;
+  --ion-color-primary-shade: #618fe0;
+  --ion-color-primary-tint: #7dabff;
+}

@@ -1,0 +1,56 @@
+// Pastilla de cristal con dos opciones; la activa lleva el degradado lima y texto oscuro (#1c2316, 13.04:1).
+:host {
+  display: block;
+}
+
+.shift-toggle {
+  display: inline-flex;
+  gap: 4px;
+  padding: 4px;
+  border: 1px solid var(--lt-glass-border);
+  border-radius: 16px;
+  background: var(--lt-surface);
+  box-shadow: var(--lt-shadow);
+  backdrop-filter: blur(16px) saturate(140%);
+}
+
+.shift-toggle__option {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 44px; // objetivo táctil ≥ 44 px
+  padding: 0 12px;
+  border: 0;
+  border-radius: 12px;
+  background: transparent;
+  color: var(--lt-soft);
+  font: inherit;
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+
+  ion-icon {
+    font-size: 1.125rem;
+  }
+
+  // Anillo de foco de teclado: mismo grosor y color que global.scss. Offset 1 px: cabe en el relleno de 4 px de
+  // la pastilla (el toolbar recorta lo que sale) y queda sobre el cristal (≥ 15.28:1).
+  &:focus-visible {
+    outline: 3px solid var(--lt-focus-ring);
+    outline-offset: 1px;
+  }
+}
+
+.shift-toggle__option--active {
+  background: var(--lt-accent-gradient);
+  color: var(--lt-accent-ink);
+  cursor: default;
+}
+
+// Pantallas estrechas (≤ 360 px): menos relleno para que quepa junto al título.
+@media (max-width: 360px) {
+  .shift-toggle__option {
+    gap: 4px;
+    padding: 0 8px;
+  }
+}

@@ -32,9 +32,11 @@
  * https://ionicframework.com/docs/theming/dark-mode
  */
 
-/* @import "@ionic/angular/css/palettes/dark.always.css"; */
-/* @import "@ionic/angular/css/palettes/dark.class.css"; */
-@import '@ionic/angular/css/palettes/dark.system.css';
+/*
+ * Paleta oscura por clase: el turno lo elige el operario (ThemeService pone `ion-palette-dark` en <html>), no el
+ * sistema. Los tokens propios de cada turno están en theme/variables.scss.
+ */
+@import '@ionic/angular/css/palettes/dark.class.css';
 
 /**
  * Foco de teclado visible
@@ -44,11 +46,11 @@
  * (de 1.16 a 1.71:1 frente al estado sin foco). Aquí se sustituye por un contorno de 3 px.
  * Ionic añade `.ion-focused` solo cuando el foco llega desde el teclado, así que el ratón y el
  * tacto no muestran el contorno.
- * El color es el del texto (#000 en claro, #fff en oscuro), con #000 de respaldo porque el tema
- * claro no define --ion-text-color. Contraste con el fondo: 21:1 en claro, de 16.48 a 18.73:1 en oscuro.
+ * El color es --lt-focus-ring (la tinta del turno: #14202f de día, #fff de noche). Contraste con el peor fondo
+ * (cielo, cabecera, campo, segmento o tarjeta de cristal): ≥ 12.27:1 de día y ≥ 9.30:1 de noche.
  */
 ion-button.ion-focused::part(native) {
-  outline: 3px solid var(--ion-text-color, #000);
+  outline: 3px solid var(--lt-focus-ring);
   outline-offset: 2px;
 }
 
@@ -57,7 +59,7 @@ ion-button.ion-focused::part(native) {
  * hacia dentro (-3px) y queda sobre el fondo del toolbar, igual que con offset positivo.
  */
 ion-segment-button.ion-focused::part(native) {
-  outline: 3px solid var(--ion-text-color, #000);
+  outline: 3px solid var(--lt-focus-ring);
   outline-offset: -3px;
 }
 
@@ -67,7 +69,7 @@ ion-segment-button.ion-focused::part(native) {
  * (de 5.95 a 10.78:1 en ambos temas) y no el color del texto.
  */
 ion-item-option.ion-focused::part(native) {
-  outline: 3px solid var(--ion-color-contrast, var(--ion-text-color, #000));
+  outline: 3px solid var(--ion-color-contrast, var(--lt-focus-ring));
   outline-offset: -3px;
 }
 
@@ -77,7 +79,7 @@ ion-item-option.ion-focused::part(native) {
  * cabe justo sobre el fondo del toolbar.
  */
 ion-searchbar .searchbar-input:focus-visible {
-  outline: 3px solid var(--ion-text-color, #000);
+  outline: 3px solid var(--lt-focus-ring);
   outline-offset: 0;
 }
 
@@ -93,4 +95,222 @@ ion-searchbar .searchbar-input-container .searchbar-clear-button {
   inset-inline-end: 0;
   width: 44px;
   height: 44px;
+}
+
+/**
+ * Tipografía: Instrument Sans (OFL-1.1) autoalojada desde @fontsource-variable/instrument-sans.
+ * -----------------------------------------------------
+ * Solo el subconjunto latino (cubre el español: tildes, ñ, ¿, ¡, €) y solo el eje de peso, limitado a 400-600.
+ * El build copia el .woff2 a la app: no hay peticiones a servidores de fuentes externos.
+ * El rango Unicode es el del propio paquete (wght.css, bloque «latin»).
+ */
+@font-face {
+  font-family: 'Instrument Sans Variable';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 400 600;
+  src: url('@fontsource-variable/instrument-sans/files/instrument-sans-latin-wght-normal.woff2')
+    format('woff2-variations');
+  unicode-range:
+    U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F,
+    U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+/**
+ * Fondo de cielo según el turno (estático, CSS puro)
+ * -----------------------------------------------------
+ * Capa fija detrás de toda la app: degradado vertical del cielo y un brillo radial (de día arriba a la izquierda,
+ * de noche ámbar abajo a la derecha). El contenido y la cabecera son transparentes o de cristal encima.
+ */
+body {
+  background: var(--lt-sky-top);
+}
+
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  background: var(--lt-sky);
+  pointer-events: none;
+}
+
+ion-content {
+  --background: transparent;
+}
+
+/**
+ * Toast de cristal. Va aquí y no en la página porque Ionic lo traslada a <body> al presentarlo.
+ * Fondo casi opaco: debajo puede haber cualquier cosa (tarjetas, badges, botones); el texto queda ≥ 13.7:1.
+ */
+ion-toast {
+  --background: var(--lt-toast);
+  --color: var(--lt-ink);
+  --border-radius: 16px;
+  --box-shadow: var(--lt-shadow);
+  --border-color: var(--lt-border);
+  --border-style: solid;
+  --border-width: 1px;
+}
+
+ion-toast::part(container) {
+  backdrop-filter: blur(16px) saturate(140%);
+  border-radius: 16px;
+}
+
+/**
+ * Piel de cristal de los componentes de Ionic
+ * -----------------------------------------------------
+ * Tema común de cabecera, toolbars, segmento, buscador y opciones deslizantes. Va aquí (no en la página) porque es
+ * el aspecto de los componentes en toda la app y para no superar el presupuesto de estilos por componente.
+ */
+// Cabecera de cristal: un único panel translúcido con desenfoque; los tres toolbars son transparentes encima.
+ion-header {
+  border-bottom: 1px solid var(--lt-border);
+  background: var(--lt-surface-strong);
+  backdrop-filter: blur(18px) saturate(150%);
+}
+
+ion-toolbar {
+  --background: transparent;
+  --border-width: 0;
+  --padding-start: 12px;
+  --padding-end: 12px;
+}
+
+// Segmento de prioridad: pastilla de cristal; la opción activa lleva el degradado lima.
+ion-segment {
+  padding: 4px;
+  border: 1px solid var(--lt-glass-border);
+  border-radius: 16px;
+  background: var(--lt-surface);
+}
+
+// Botones con altura táctil suficiente y sin mayúsculas.
+// Sin la capa de foco de Ionic (primary al 12 %): el foco se señala con el contorno de global.scss.
+// `min-width: 0` y `flex: 1 1 auto`: el ancho mínimo de 90 px de Ionic md (4 × 90 = 360 px) es lo que cortaba las
+// etiquetas en pantallas estrechas; ahora cada botón mide lo que su texto y caben los cuatro desde 320 px.
+//
+// La lima de la opción seleccionada se pinta en el propio botón con `--background-checked` (Ionic la aplica con
+// `:host(.segment-button-checked) { background: … }`), NO con el indicador. El indicador de md es una capa absoluta
+// anclada solo abajo (`bottom: 0`, sin `top` ni altura), así que su alto es automático y un `--indicator-height`
+// en porcentaje se resuelve a 0 px: el degradado nunca se pintaba en ningún turno. De día no se notaba (tinta
+// oscura sobre cristal claro, 9:1), de noche quedaba tinta oscura sobre cristal oscuro (≈ 1.2:1).
+// El indicador se oculta (alto 0) para que no dibuje la barra inferior de md ni anime su desplazamiento.
+ion-segment-button {
+  --background-checked: var(--lt-accent-gradient);
+  --background-focused-opacity: 0;
+  --background-hover-opacity: 0;
+  --border-radius: 12px;
+  --color: var(--lt-soft);
+  --color-checked: var(--lt-accent-ink);
+  --indicator-height: 0;
+  --indicator-box-shadow: none;
+  --padding-start: 10px;
+  --padding-end: 10px;
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 44px;
+  border-radius: 12px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  letter-spacing: normal;
+  text-transform: none;
+}
+
+// Foco sobre la opción activa: el anillo va por dentro (ion-segment recorta) y queda sobre la lima, así que usa
+// la tinta de la lima (#1c2316, 13.04:1) y no la del turno (blanco de noche, de 1.08 a 1.24:1 sobre la lima).
+ion-segment-button.segment-button-checked.ion-focused::part(native) {
+  outline-color: var(--lt-accent-ink);
+}
+
+// Buscador de cristal. Placeholder e icono en --lt-soft sin opacidad extra: ≥ 9.11:1 (día) y ≥ 9.24:1 (noche).
+// `:root` delante es necesario: ion-searchbar es un componente *scoped* (sin shadow DOM) que declara sus variables
+// en `.sc-ion-searchbar-md-h` (0,1,0); un selector de solo elemento (0,0,1) pierde y Ionic deja su placeholder
+// con opacidad 0.6 (3.90:1 de día, medido en Chrome). Con (0,1,1) prevalece sin !important.
+:root ion-searchbar {
+  --background: var(--lt-field);
+  --border-radius: 16px;
+  --box-shadow: none;
+  --color: var(--lt-ink);
+  --icon-color: var(--lt-soft);
+  --clear-button-color: var(--lt-soft);
+  --placeholder-color: var(--lt-soft);
+  --placeholder-opacity: 1;
+  padding-inline: 0;
+
+  .searchbar-input {
+    border: 1px solid var(--lt-glass-border);
+  }
+}
+
+// Item deslizante: mientras se desliza o tiene las opciones abiertas (Ionic pone entonces
+// `.item-sliding-active-slide`; las opciones solo se muestran en ese estado), detrás del cristal se pinta el cielo
+// de forma opaca para que la tarjeta tape por completo las opciones. En reposo no se aplica: el aspecto no cambia.
+// (Siempre activo no valía: el fondo `fixed` dentro de la página de Ionic no coincide al píxel con body::before.)
+ion-item-sliding.item-sliding-active-slide > ion-item {
+  background: var(--lt-sky);
+  background-attachment: fixed;
+}
+
+// Opciones deslizantes: superan con margen el mínimo de 44 × 44 px; radio 12 y sin mayúsculas.
+ion-item-options {
+  gap: 8px;
+  padding-inline-start: 8px;
+}
+
+ion-item-option {
+  min-width: 96px;
+  border-radius: 12px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  letter-spacing: normal;
+  text-transform: none;
+
+  &::part(native) {
+    border-radius: 12px;
+  }
+
+  ion-icon {
+    font-size: 1.5rem;
+  }
+}
+
+
+// Botones (tarjeta, «Limpiar filtros»): radio 12, peso 600 y sin las mayúsculas de Ionic md.
+ion-button {
+  --border-radius: 12px;
+  font-weight: 600;
+  letter-spacing: normal;
+  text-transform: none;
+}
+
+// Panel de cristal reutilizable (chips del resumen, estado vacío): fondo translúcido, borde sutil, sombra suave y
+// desenfoque. Las tarjetas lo replican en su propio :host para seguir siendo autónomas.
+.lt-glass {
+  border: 1px solid var(--lt-glass-border);
+  border-radius: 16px;
+  background: var(--lt-surface);
+  box-shadow: var(--lt-shadow);
+  backdrop-filter: blur(16px) saturate(140%);
+}
+
+// Logotipo de la cabecera: caja isométrica en lima (SVG propio y decorativo, aria-hidden).
+.brand-logo {
+  display: block;
+  width: 32px;
+  height: 32px;
+  margin-inline-end: 4px;
+}
+
+.brand-logo__top {
+  fill: var(--lt-accent-soft);
+}
+
+.brand-logo__left {
+  fill: var(--lt-accent);
+}
+
+.brand-logo__right {
+  fill: #c3d36a; // cara en sombra de la lima
 }

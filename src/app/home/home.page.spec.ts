@@ -9,6 +9,7 @@ import type { Observable } from 'rxjs';
 import { delay, finalize, of, tap } from 'rxjs';
 
 import { PackageService, SEARCH_LATENCY_MS } from '../services/package.service';
+import { NIGHT_CLASS, SHIFT_STORAGE_KEY, ThemeService } from '../services/theme.service';
 
 import { HomePage, SEARCH_DEBOUNCE_MS, SEARCH_INPUT_LABEL, isPriorityFilter } from './home.page';
 
@@ -20,7 +21,14 @@ describe('HomePage', () => {
   let fixture: ComponentFixture<HomePage>;
   let host: HTMLElement;
 
+  /** El turno vive en <html> y en localStorage: se limpia para que no pase de un test a otro. */
+  function resetShift(): void {
+    localStorage.removeItem(SHIFT_STORAGE_KEY);
+    document.documentElement.classList.remove(NIGHT_CLASS);
+  }
+
   beforeEach(async () => {
+    resetShift();
     vi.useFakeTimers();
     await TestBed.configureTestingModule({ imports: [HomePage] }).compileComponents();
     fixture = TestBed.createComponent(HomePage);
@@ -31,6 +39,7 @@ describe('HomePage', () => {
 
   afterEach(() => {
     vi.useRealTimers();
+    resetShift();
     // Los toasts presentados quedan en document.body; se retiran para que no pasen de un test a otro.
     for (const el of Array.from(document.body.querySelectorAll(':scope > ion-toast'))) {
       el.remove();
@@ -316,6 +325,50 @@ describe('HomePage', () => {
       const input = await searchbar().getInputElement();
 
       await vi.waitFor(() => expect(input.getAttribute('aria-label')).toBe(SEARCH_INPUT_LABEL));
+    });
+  });
+
+  describe('selector de turno', () => {
+    function shiftButton(text: string): HTMLButtonElement {
+      const el = Array.from(host.querySelectorAll('app-shift-toggle button')).find((b) =>
+        b.textContent?.includes(text),
+      );
+      if (!(el instanceof HTMLButtonElement)) throw new Error(`Botón de turno "${text}" no encontrado`);
+      return el;
+    }
+
+    it('está en la primera toolbar de la cabecera, al final', () => {
+      const toggle = host.querySelector('app-shift-toggle');
+
+      expect(toggle).not.toBeNull();
+      expect(toggle?.closest('ion-header')).not.toBeNull();
+      expect(toggle?.closest('ion-toolbar')).toBe(host.querySelector('ion-header ion-toolbar'));
+      expect(toggle?.getAttribute('slot')).toBe('end');
+      expect(toggle?.querySelector('[role="group"]')?.getAttribute('aria-label')).toBe('Turno de trabajo');
+    });
+
+    it('cambia la clase del <html>, el servicio y aria-pressed al pulsar Oscuro y después Claro', async () => {
+      const theme = TestBed.inject(ThemeService);
+      const html = document.documentElement;
+      expect(theme.shift()).toBe('day');
+      expect(html.classList).not.toContain(NIGHT_CLASS);
+
+      shiftButton('Oscuro').click();
+      TestBed.tick();
+      await settle();
+
+      expect(theme.shift()).toBe('night');
+      expect(html.classList).toContain(NIGHT_CLASS);
+      expect(localStorage.getItem(SHIFT_STORAGE_KEY)).toBe('night');
+      expect(shiftButton('Oscuro').getAttribute('aria-pressed')).toBe('true');
+      expect(shiftButton('Claro').getAttribute('aria-pressed')).toBe('false');
+
+      shiftButton('Claro').click();
+      TestBed.tick();
+      await settle();
+
+      expect(html.classList).not.toContain(NIGHT_CLASS);
+      expect(shiftButton('Claro').getAttribute('aria-pressed')).toBe('true');
     });
   });
 

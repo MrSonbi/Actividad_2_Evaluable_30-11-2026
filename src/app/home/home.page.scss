@@ -1,34 +1,32 @@
-// h1 real dentro de ion-title: anula los márgenes y el tamaño de typography.css para que se vea igual que el
-// texto suelto que había antes; el elipsis se repite aquí porque el de .toolbar-title no alcanza a un bloque hijo.
+ion-title {
+  padding-inline: 8px;
+}
+
+// h1 real dentro de ion-title: anula los márgenes y el tamaño de typography.css. Título en dos tonos.
+// Puede pasar a dos líneas: junto al selector de turno no cabe en una a 412 px y truncarlo ocultaba «Express».
 .page-title {
   margin: 0;
   overflow: hidden;
-  font-size: inherit;
-  font-weight: inherit;
-  line-height: inherit;
-  letter-spacing: inherit;
+  white-space: normal;
+  font-size: 1.25rem;
+  font-weight: 600;
+  line-height: 1.2;
+  letter-spacing: -0.01em;
+  color: var(--lt-ink);
   text-overflow: ellipsis;
 }
 
-// Segmento de prioridad: botones con altura táctil suficiente.
-// Sin la capa de foco de Ionic (primary al 12 %): en oscuro deja el botón seleccionado en 4.38:1 (WCAG 1.4.3).
-// El foco se señala con el contorno de global.scss.
-ion-segment-button {
-  --background-focused-opacity: 0;
-  min-height: 44px;
+.page-title__accent {
+  color: var(--lt-muted);
 }
 
-// Placeholder del buscador (WCAG 1.4.3): Ionic usa opacity 0.6, que en claro da 4.12:1.
-// Con 0.75 queda en 6.69:1 (claro) y 7.97:1 (oscuro) sobre el fondo del campo.
-ion-searchbar {
-  --placeholder-opacity: 0.75;
-}
-
+// ---------------------------------------------------------------------------------------------------------------
 // Resumen por estado y número de resultados, al inicio del contenido.
+// ---------------------------------------------------------------------------------------------------------------
 .list-header {
   max-width: 960px;
   margin-inline: auto;
-  padding: 12px 16px 4px;
+  padding: 16px 16px 4px;
 }
 
 .status-summary {
@@ -38,44 +36,81 @@ ion-searchbar {
   margin: 0;
   padding: 0;
   list-style: none;
+}
 
-  ion-badge {
-    padding: 8px 12px;
-    font-size: 0.875rem;
+// Chip de cristal (.lt-glass, global.scss): punto de color + texto en tinta. El punto (≥ 3:1) refuerza, el texto ya dice el estado.
+// Las reglas de fuera del shadow DOM prevalecen sobre las `:host(.ion-color)` de ion-badge, sin !important.
+.status-chip {
+  --lt-dot: var(--lt-mark-transit);
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-radius: 999px;
+  color: var(--lt-ink);
+  font-size: 0.875rem;
+  font-weight: 600;
+
+  &::before {
+    content: '';
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--lt-dot);
+  }
+
+  &.ion-color-success {
+    --lt-dot: var(--lt-mark-inspected);
+  }
+
+  &.ion-color-danger {
+    --lt-dot: var(--lt-mark-rejected);
   }
 }
 
 .result-count {
   margin: 12px 0 0;
+  color: var(--lt-soft);
   font-size: 0.875rem;
 }
 
-// Lista centrada con ancho máximo para que en tablet no se estire de lado a lado.
+.result-count__searching {
+  color: var(--lt-muted);
+}
+
+// ---------------------------------------------------------------------------------------------------------------
+// Lista: centrada, sin fondo ni separadores; cada fila es una tarjeta de cristal con aire entre ellas.
+// ---------------------------------------------------------------------------------------------------------------
 .package-list {
   max-width: 960px;
   margin-inline: auto;
-}
+  padding: 8px 12px 24px;
+  background: transparent;
 
-// Contenedor de la tarjeta: sin relleno propio, la tarjeta ocupa toda la fila y gestiona su espaciado.
-.package-list__item {
-  --padding-start: 0;
-  --inner-padding-end: 0;
-}
-
-// Botones deslizantes: superan con margen el mínimo de 44 × 44 px.
-ion-item-option {
-  min-width: 96px;
-  font-size: 0.875rem;
-
-  ion-icon {
-    font-size: 1.5rem;
+  ion-item-sliding {
+    margin-bottom: 12px;
+    border-radius: 16px;
   }
 }
 
-// ion-item del estado vacío: sin relleno propio para que el bloque conserve el aspecto que tenía fuera del item.
+// Contenedor de la tarjeta: sin relleno ni separador propio, la tarjeta ocupa toda la fila y se dibuja sola.
+.package-list__item {
+  --padding-start: 0;
+  --inner-padding-end: 0;
+  --border-width: 0;
+  --inner-border-width: 0;
+  --background: transparent;
+  --background-hover-opacity: 0;
+  border-radius: 16px;
+}
+
+// ---------------------------------------------------------------------------------------------------------------
+// Estado vacío: panel de cristal (.lt-glass, global.scss).
+// ---------------------------------------------------------------------------------------------------------------
 .empty-state__item {
   --padding-start: 0;
   --inner-padding-end: 0;
+  --background: transparent;
 }
 
 .empty-state {
@@ -85,24 +120,52 @@ ion-item-option {
   gap: 8px;
   box-sizing: border-box;
   width: 100%;
-  padding: 48px 16px;
+  padding: 40px 16px;
+  color: var(--lt-ink);
   text-align: center;
 
   ion-icon {
+    color: var(--lt-soft);
     font-size: 3rem;
   }
+}
 
-  // «Limpiar filtros»: 44 px de alto en lugar de los 36 px de Ionic md (mejora ergonómica, WCAG 2.5.5 AAA).
-  // Sin la capa de foco de Ionic: en oscuro deja el texto en 4.44:1 (WCAG 1.4.3). El contorno de global.scss la sustituye.
-  ion-button {
-    --background-focused-opacity: 0;
-    min-height: 44px;
+// «Limpiar filtros»: 44 px de alto en lugar de los 36 px de Ionic md (mejora ergonómica, WCAG 2.5.5 AAA).
+// Sin la capa de foco de Ionic: el contorno de global.scss la sustituye.
+.empty-state__action {
+  --background-focused-opacity: 0;
+  --border-width: 1.5px;
+  min-height: 44px;
+}
+
+// Pantallas estrechas (≤ 380 px): menos relleno y título algo menor.
+@media (max-width: 380px) {
+  ion-toolbar {
+    --padding-start: 8px;
+    --padding-end: 8px;
+  }
+
+  ion-title {
+    padding-inline: 4px;
+  }
+
+  .page-title {
+    font-size: 1.125rem;
+  }
+
+  ion-segment-button {
+    --padding-start: 6px;
+    --padding-end: 6px;
   }
 }
 
 // Tablet (≈ 820 px): más aire en la cabecera de la lista.
 @media (min-width: 768px) {
   .list-header {
+    padding-inline: 24px;
+  }
+
+  .package-list {
     padding-inline: 24px;
   }
 }

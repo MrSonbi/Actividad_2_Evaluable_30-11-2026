@@ -35,9 +35,12 @@ import type { Observable } from 'rxjs';
 import { debounceTime, distinctUntilChanged, map, of, switchMap } from 'rxjs';
 
 import { PackageCardComponent } from '../components/package-card/package-card.component';
+import { ShiftToggleComponent } from '../components/shift-toggle/shift-toggle.component';
 import { PACKAGE_PRIORITIES, PACKAGE_STATUSES } from '../models/package.model';
 import type { PackagePriority, PackageStatus, StatusChangeEvent, WarehousePackage } from '../models/package.model';
 import { PackageService } from '../services/package.service';
+import { ThemeService } from '../services/theme.service';
+import type { Shift } from '../services/theme.service';
 import { PRIORITY_DISPLAY, PRIORITY_ORDER, STATUS_DISPLAY, STATUS_ORDER } from '../shared/package-display';
 
 /** Nombre accesible del input interno de ion-searchbar. */
@@ -97,10 +100,15 @@ export function isPriorityFilter(value: unknown): value is PriorityFilter {
     IonToast,
     IonToolbar,
     PackageCardComponent,
+    ShiftToggleComponent,
   ],
 })
 export class HomePage {
   private readonly packageService = inject(PackageService);
+  private readonly themeService = inject(ThemeService);
+
+  /** Turno visual activo (Día / Noche); lo muestra el selector de la cabecera. */
+  readonly shift = this.themeService.shift.asReadonly();
 
   /** Buscador de la cabecera; se usa solo para dar nombre accesible a su input interno. */
   private readonly searchbar = viewChild.required(IonSearchbar);
@@ -220,6 +228,11 @@ export class HomePage {
     if (isPriorityFilter(value)) {
       this.priorityFilter.set(value);
     }
+  }
+
+  /** El operario cambia de turno en el selector de la cabecera. */
+  onShiftChange(shift: Shift): void {
+    this.themeService.setShift(shift);
   }
 
   /** Restablece búsqueda y filtro de prioridad. */

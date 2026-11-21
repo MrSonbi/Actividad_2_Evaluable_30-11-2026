@@ -1,8 +1,8 @@
 <div class="package-card__summary">
   <ion-label>
     <h2 class="package__code">{{ pkg().trackingCode }}</h2>
-    <p>{{ pkg().destinationHub }}</p>
-    <p>{{ pkg().weightKg | number: '1.0-2' }} kg · {{ pkg().timestamp | date: 'HH:mm' }}</p>
+    <p class="package__meta">{{ pkg().destinationHub }}</p>
+    <p class="package__meta">{{ pkg().weightKg | number: '1.0-2' }} kg · {{ pkg().timestamp | date: 'HH:mm' }}</p>
     @if (isHeavy()) {
       <p class="package__heavy">
         <ion-icon name="barbell-outline" aria-hidden="true"></ion-icon>
@@ -11,10 +11,10 @@
     }
   </ion-label>
   <div class="package__badges">
-    <ion-badge [color]="priorityDisplay().color">
+    <ion-badge class="package__badge" [color]="priorityDisplay().color">
       {{ priorityDisplay().label }}
     </ion-badge>
-    <ion-badge [color]="statusDisplay().color">
+    <ion-badge class="package__badge" [color]="statusDisplay().color">
       <ion-icon [name]="statusDisplay().icon" aria-hidden="true"></ion-icon>
       {{ statusDisplay().label }}
     </ion-badge>

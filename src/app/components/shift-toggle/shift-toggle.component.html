@@ -1,0 +1,22 @@
+<div class="shift-toggle" role="group" aria-label="Turno de trabajo">
+  <button
+    type="button"
+    class="shift-toggle__option"
+    [class.shift-toggle__option--active]="isDay()"
+    [attr.aria-pressed]="isDay()"
+    (click)="select('day')"
+  >
+    <ion-icon name="sunny-outline" aria-hidden="true"></ion-icon>
+    <span>Claro</span>
+  </button>
+  <button
+    type="button"
+    class="shift-toggle__option"
+    [class.shift-toggle__option--active]="isNight()"
+    [attr.aria-pressed]="isNight()"
+    (click)="select('night')"
+  >
+    <ion-icon name="moon-outline" aria-hidden="true"></ion-icon>
+    <span>Oscuro</span>
+  </button>
+</div>

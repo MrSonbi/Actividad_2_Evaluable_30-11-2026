@@ -1,21 +1,29 @@
-// La tarjeta se dibuja a sí misma (borde por estado, márgenes internos) para verse igual en cualquier contenedor.
+// Tarjeta de cristal que se dibuja a sí misma (fondo, borde, barra de estado, márgenes internos) para verse igual
+// en cualquier contenedor. Barra lateral de 4 px con el color de estado (≥ 3:1 sobre el cristal en ambos turnos).
 :host {
+  --lt-card-mark: var(--lt-mark-transit);
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 12px;
   box-sizing: border-box;
   width: 100%;
   min-height: 88px;
-  padding: 8px 16px;
-  border-inline-start: 6px solid var(--ion-color-primary);
+  padding: 14px 16px;
+  border: 1px solid var(--lt-glass-border);
+  border-inline-start: 4px solid var(--lt-card-mark);
+  border-radius: 16px;
+  background: var(--lt-surface);
+  box-shadow: var(--lt-shadow);
+  color: var(--lt-ink);
+  backdrop-filter: blur(16px) saturate(140%);
 }
 
 :host(.package-card--inspected) {
-  border-inline-start-color: var(--ion-color-success);
+  --lt-card-mark: var(--lt-mark-inspected);
 }
 
 :host(.package-card--rejected) {
-  border-inline-start-color: var(--ion-color-danger);
+  --lt-card-mark: var(--lt-mark-rejected);
 }
 
 .package-card__summary {
@@ -32,13 +40,22 @@
 }
 
 .package__code {
+  margin: 0 0 4px;
+  color: var(--lt-ink);
+  font-size: 1.0625rem;
   font-weight: 600;
+}
+
+// Texto secundario: --lt-soft en lugar del gris de Ionic (≥ 8.62:1 día, ≥ 10.54:1 noche sobre el cristal).
+.package__meta {
+  color: var(--lt-soft);
 }
 
 .package__heavy {
   display: flex;
   align-items: center;
   gap: 4px;
+  color: var(--lt-ink);
   font-weight: 600;
 }
 
@@ -47,13 +64,19 @@
   flex-direction: column;
   align-items: flex-end;
   gap: 6px;
+}
 
-  ion-badge {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    padding: 6px 10px;
-  }
+// Badges en pastilla, peso 600 y sin mayúsculas; mantienen el color de Ionic y su color de contraste.
+.package__badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  letter-spacing: normal;
+  text-transform: none;
 }
 
 // Acciones: objetivos táctiles de 48 px de alto con 12 px de separación para pulsar con guantes.
@@ -67,9 +90,18 @@
 // deja el texto de «Rechazar» en 3.72:1 (WCAG 1.4.3). El foco se señala con el contorno de global.scss.
 .package-card__action {
   --background-focused-opacity: 0;
+  --box-shadow: none;
   flex: 1 1 0;
   min-height: 48px;
   margin: 0;
+}
+
+// Deshabilitado claramente distinto: sin relleno de color, borde discontinuo y texto apagado (exento de contraste,
+// WCAG 1.4.3). Las reglas ::part de fuera del shadow DOM prevalecen sobre las internas de ion-button.
+.package-card__action.button-disabled::part(native) {
+  border: 1.5px dashed var(--lt-muted);
+  background: transparent;
+  color: var(--lt-muted);
 }
 
 // Tablet (≈ 820 px): más aire; insignias en fila y botones alineados a la derecha.
