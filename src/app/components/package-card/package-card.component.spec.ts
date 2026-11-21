@@ -94,6 +94,31 @@ describe('PackageCardComponent', () => {
     });
   });
 
+  describe('destello al cambiar de estado', () => {
+    const flashClasses = (): string[] => Array.from(host.classList).filter((c) => c.includes('--flash-'));
+
+    it('no destella en el primer render ni si cambian otros datos del paquete', async () => {
+      await render(LIGHT_IN_TRANSIT);
+      expect(flashClasses()).toEqual([]);
+
+      fixture.componentRef.setInput('pkg', { ...LIGHT_IN_TRANSIT, weightKg: 9 });
+      await fixture.whenStable();
+      expect(flashClasses()).toEqual([]);
+    });
+
+    it('cada cambio de estado pone la clase de destello de su nuevo estado', async () => {
+      await render(LIGHT_IN_TRANSIT);
+
+      fixture.componentRef.setInput('pkg', { ...LIGHT_IN_TRANSIT, status: 'REJECTED' });
+      await fixture.whenStable();
+      expect(flashClasses()).toEqual(['package-card--flash-rejected']);
+
+      fixture.componentRef.setInput('pkg', { ...LIGHT_IN_TRANSIT, status: 'INSPECTED' });
+      await fixture.whenStable();
+      expect(flashClasses()).toEqual(['package-card--flash-inspected']);
+    });
+  });
+
   describe('emisión de statusChange', () => {
     it('"Inspeccionar" emite una sola vez { id, newStatus: INSPECTED }', async () => {
       await render(LIGHT_IN_TRANSIT);

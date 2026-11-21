@@ -8,10 +8,11 @@ import { TestBed } from '@angular/core/testing';
 import type { Observable } from 'rxjs';
 import { delay, finalize, of, tap } from 'rxjs';
 
+import { MOTION_PAUSED_STORAGE_KEY, MotionService } from '../services/motion.service';
 import { PackageService, SEARCH_LATENCY_MS } from '../services/package.service';
 import { NIGHT_CLASS, SHIFT_STORAGE_KEY, ThemeService } from '../services/theme.service';
 
-import { HomePage, SEARCH_DEBOUNCE_MS, SEARCH_INPUT_LABEL, isPriorityFilter } from './home.page';
+import { HomePage, INTRO_MS, SEARCH_DEBOUNCE_MS, SEARCH_INPUT_LABEL, isPriorityFilter } from './home.page';
 
 /** Tiempo hasta que se aplica una búsqueda con la latencia normal del servicio. */
 const SEARCH_SETTLE_MS = SEARCH_DEBOUNCE_MS + SEARCH_LATENCY_MS;
@@ -24,6 +25,7 @@ describe('HomePage', () => {
   /** El turno vive en <html> y en localStorage: se limpia para que no pase de un test a otro. */
   function resetShift(): void {
     localStorage.removeItem(SHIFT_STORAGE_KEY);
+    localStorage.removeItem(MOTION_PAUSED_STORAGE_KEY);
     document.documentElement.classList.remove(NIGHT_CLASS);
   }
 
@@ -328,6 +330,65 @@ describe('HomePage', () => {
     });
   });
 
+  describe('botón de pausa del fondo (WCAG 2.2.2)', () => {
+    function motionToggle(): HTMLIonButtonElement | null {
+      return host.querySelector('ion-button.motion-toggle');
+    }
+
+    /**
+     * aria-pressed enlazado por Angular en el host. Ionic lo traslada al <button> interno con un MutationObserver
+     * (comprobado en Chrome: el interno sigue cada cambio); en jsdom ese re-render no llega a ejecutarse, así que se
+     * lee el host y, solo si Ionic ya lo ha retirado de él, el interno.
+     */
+    function pressed(button: HTMLIonButtonElement): string | null {
+      return (
+        button.getAttribute('aria-pressed') ??
+        button.shadowRoot?.querySelector('button')?.getAttribute('aria-pressed') ??
+        null
+      );
+    }
+
+    it('no aparece si no hay atmósfera WebGL (nada que pausar)', () => {
+      expect(motionToggle()).toBeNull();
+    });
+
+    it('con la atmósfera en marcha: «Pausar fondo», aria-pressed y la elección se guarda', async () => {
+      TestBed.inject(MotionService).setBackgroundAvailable(true);
+      await settle();
+      const button = motionToggle();
+      if (!button) throw new Error('Botón de pausa no encontrado');
+      expect(button.textContent?.trim()).toBe('Pausar fondo');
+      expect(pressed(button)).toBe('false');
+      expect(button.closest('.list-header')).not.toBeNull(); // en la fila del recuento, no en la cabecera
+      expect(button.querySelector('ion-icon')?.getAttribute('aria-hidden')).toBe('true');
+
+      button.click();
+      await settle();
+
+      expect(TestBed.inject(MotionService).backgroundPaused()).toBe(true);
+      expect(button.textContent?.trim()).toBe('Reanudar fondo');
+      expect(pressed(button)).toBe('true');
+      expect(localStorage.getItem(MOTION_PAUSED_STORAGE_KEY)).toBe('true');
+
+      button.click();
+      await settle();
+      expect(button.textContent?.trim()).toBe('Pausar fondo');
+      expect(localStorage.getItem(MOTION_PAUSED_STORAGE_KEY)).toBe('false');
+    });
+  });
+
+  describe('entrada escalonada', () => {
+    it('solo en el primer render: la clase se retira tras INTRO_MS y cada fila lleva su índice', async () => {
+      const list = host.querySelector('ion-list');
+      expect(list?.classList).toContain('package-list--intro');
+      expect(slidingItems()[3].style.getPropertyValue('--i')).toBe('3');
+
+      await settle(INTRO_MS);
+
+      expect(list?.classList).not.toContain('package-list--intro');
+    });
+  });
+
   describe('selector de turno', () => {
     function shiftButton(text: string): HTMLButtonElement {
       const el = Array.from(host.querySelectorAll('app-shift-toggle button')).find((b) =>
@@ -344,7 +405,7 @@ describe('HomePage', () => {
       expect(toggle?.closest('ion-header')).not.toBeNull();
       expect(toggle?.closest('ion-toolbar')).toBe(host.querySelector('ion-header ion-toolbar'));
       expect(toggle?.getAttribute('slot')).toBe('end');
-      expect(toggle?.querySelector('[role="group"]')?.getAttribute('aria-label')).toBe('Turno de trabajo');
+      expect(toggle?.querySelector('[role="group"]')?.getAttribute('aria-label')).toBe('Modo de visualización');
     });
 
     it('cambia la clase del <html>, el servicio y aria-pressed al pulsar Oscuro y después Claro', async () => {

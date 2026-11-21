@@ -47,18 +47,33 @@
         </li>
       }
     </ul>
-    <!-- Solo el recuento final es región viva; "Buscando…" es un indicador visual que no se anuncia (M8). -->
-    <p class="result-count">
-      <span role="status">{{ resultAnnouncement() }}</span>
-      @if (isSearching()) {
-        <span class="result-count__searching">Buscando…</span>
+    <div class="list-header__row">
+      <!-- Solo el recuento final es región viva; "Buscando…" es un indicador visual que no se anuncia (M8). -->
+      <p class="result-count">
+        <span role="status">{{ resultAnnouncement() }}</span>
+        @if (isSearching()) {
+          <span class="result-count__searching">Buscando…</span>
+        }
+      </p>
+      @if (showMotionToggle()) {
+        <!-- WCAG 2.2.2: el fondo se mueve de forma continua, así que se puede pausar. -->
+        <ion-button
+          class="motion-toggle"
+          fill="clear"
+          size="small"
+          [attr.aria-pressed]="backgroundPaused()"
+          (click)="toggleBackground()"
+        >
+          <ion-icon slot="start" [name]="motionToggleIcon()" aria-hidden="true"></ion-icon>
+          {{ motionToggleLabel() }}
+        </ion-button>
       }
-    </p>
+    </div>
   </div>
 
-  <ion-list class="package-list" lines="full">
+  <ion-list class="package-list" [class.package-list--intro]="introActive()" lines="full">
     @for (pkg of visiblePackages(); track pkg.id) {
-      <ion-item-sliding #slidingItem>
+      <ion-item-sliding #slidingItem [style.--i]="$index">
         <ion-item class="package-list__item">
           <app-package-card [pkg]="pkg" (statusChange)="onStatusChange($event)" />
         </ion-item>

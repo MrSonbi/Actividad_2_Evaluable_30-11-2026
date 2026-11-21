@@ -34,7 +34,7 @@ describe('ShiftToggleComponent', () => {
     await render('day');
 
     const group = host.querySelector('[role="group"]');
-    expect(group?.getAttribute('aria-label')).toBe('Turno de trabajo');
+    expect(group?.getAttribute('aria-label')).toBe('Modo de visualización');
     const buttons = Array.from(host.querySelectorAll('button'));
     expect(buttons.map((b) => b.textContent?.trim())).toEqual(['Claro', 'Oscuro']);
     expect(buttons.every((b) => b.type === 'button')).toBe(true);

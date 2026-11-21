@@ -1,3 +1,12 @@
+<app-atmosphere
+  [night]="night()"
+  [moving]="fogMoving()"
+  [transition]="transition()"
+  [sinkTarget]="sinkTarget()"
+  (availableChange)="onAtmosphereAvailable($event)"
+  (transitionMidpoint)="onTransitionMidpoint($event)"
+  (transitionEnd)="onTransitionEnd($event)"
+/>
 <ion-app>
   <ion-router-outlet></ion-router-outlet>
 </ion-app>

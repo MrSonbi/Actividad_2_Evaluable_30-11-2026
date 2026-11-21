@@ -1,5 +1,6 @@
 import { TestBed } from '@angular/core/testing';
 
+import { MotionService } from './motion.service';
 import { NIGHT_CLASS, SHIFT_STORAGE_KEY, ThemeService, isShift } from './theme.service';
 
 /** MediaQueryList simulado y controlable para `prefers-color-scheme: dark`. */
@@ -29,9 +30,17 @@ describe('ThemeService', () => {
   const view = document.defaultView;
   if (!view) throw new Error('Sin window en el entorno de pruebas');
 
-  /** jsdom no implementa matchMedia: se instala uno simulado en la ventana del documento. */
+  /**
+   * jsdom no implementa matchMedia: se instala uno simulado en la ventana del documento. Solo la consulta de
+   * esquema de color usa `dark`; cualquier otra (p. ej. la de reduced motion de MotionService) recibe una aparte.
+   */
   function stubMatchMedia(dark: FakeDarkQuery): void {
-    Object.defineProperty(view, 'matchMedia', { configurable: true, writable: true, value: () => dark.query });
+    const other = fakeDarkQuery(false);
+    Object.defineProperty(view, 'matchMedia', {
+      configurable: true,
+      writable: true,
+      value: (media: string) => (media.includes('prefers-color-scheme') ? dark.query : other.query),
+    });
   }
 
   /** Crea el servicio y ejecuta su effect (aplicar clase y guardar). */
@@ -171,5 +180,141 @@ describe('ThemeService', () => {
     expect(isShift('night')).toBe(true);
     expect(isShift('dark')).toBe(false);
     expect(isShift(null)).toBe(false);
+  });
+});
+
+describe('ThemeService.requestShift', () => {
+  const html = document.documentElement;
+  const view = document.defaultView;
+  if (!view) throw new Error('Sin window en el entorno de pruebas');
+
+  /** Sistema con o sin reduced motion; preferencia de color clara. */
+  function stubSystem(reduceMotion: boolean): void {
+    Object.defineProperty(view, 'matchMedia', {
+      configurable: true,
+      writable: true,
+      value: (media: string) =>
+        ({
+          matches: media.includes('reduced-motion') ? reduceMotion : false,
+          addEventListener: vi.fn(),
+          removeEventListener: vi.fn(),
+        }) as unknown as MediaQueryList,
+    });
+  }
+
+  /** Servicio en modo claro con la atmósfera disponible o no. */
+  function setup(options: { reduceMotion?: boolean; atmosphere?: boolean } = {}): ThemeService {
+    stubSystem(options.reduceMotion ?? false);
+    TestBed.inject(MotionService).setBackgroundAvailable(options.atmosphere ?? true);
+    const theme = TestBed.inject(ThemeService);
+    TestBed.tick();
+    return theme;
+  }
+
+  function runningId(theme: ThemeService): number {
+    const id = theme.transition()?.id;
+    if (id === undefined) throw new Error('No hay transición en curso');
+    return id;
+  }
+
+  beforeEach(() => {
+    localStorage.clear();
+    html.classList.remove(NIGHT_CLASS);
+  });
+
+  afterEach(() => {
+    Reflect.deleteProperty(view, 'matchMedia');
+    localStorage.clear();
+    html.classList.remove(NIGHT_CLASS);
+  });
+
+  it('con reduced motion el cambio es instantáneo, sin transición', () => {
+    const theme = setup({ reduceMotion: true });
+
+    theme.requestShift('night');
+
+    expect(theme.transition()).toBeNull();
+    expect(theme.shift()).toBe('night');
+    expect(html.classList).toContain(NIGHT_CLASS);
+  });
+
+  it('sin atmósfera WebGL el cambio es instantáneo, sin transición', () => {
+    const theme = setup({ atmosphere: false });
+
+    theme.requestShift('night');
+
+    expect(theme.transition()).toBeNull();
+    expect(theme.shift()).toBe('night');
+    expect(html.classList).toContain(NIGHT_CLASS);
+  });
+
+  it('con animación el tema solo cambia al confirmarse el punto medio; el selector ya marca el destino', () => {
+    const theme = setup();
+
+    theme.requestShift('night');
+    const id = runningId(theme);
+    expect(theme.transition()).toEqual({ id, from: 'day', to: 'night' });
+    expect(theme.shift()).toBe('day');
+    expect(html.classList).not.toContain(NIGHT_CLASS);
+    expect(theme.selectedShift()).toBe('night');
+
+    theme.applyTransitionMidpoint(id + 1); // id ajeno: no hace nada
+    expect(theme.shift()).toBe('day');
+
+    theme.applyTransitionMidpoint(id);
+    expect(theme.shift()).toBe('night');
+    expect(html.classList).toContain(NIGHT_CLASS); // de forma síncrona, sin esperar al effect
+    expect(theme.transition()).not.toBeNull();
+
+    theme.completeTransition(id);
+    expect(theme.transition()).toBeNull();
+    expect(theme.selectedShift()).toBe('night');
+  });
+
+  it('un segundo clic durante la transición se encola y arranca al terminar la actual', () => {
+    const theme = setup();
+    theme.requestShift('night');
+    const first = runningId(theme);
+
+    theme.requestShift('day');
+    expect(theme.selectedShift()).toBe('day');
+    expect(runningId(theme)).toBe(first); // no interrumpe la actual
+
+    theme.applyTransitionMidpoint(first);
+    theme.completeTransition(first);
+
+    const second = runningId(theme);
+    expect(second).not.toBe(first);
+    expect(theme.transition()).toEqual({ id: second, from: 'night', to: 'day' });
+    expect(theme.shift()).toBe('night');
+  });
+
+  it('ignora el destino repetido: el actual sin transición, o el de la transición en curso', () => {
+    const theme = setup();
+
+    theme.requestShift('day');
+    expect(theme.transition()).toBeNull();
+
+    theme.requestShift('night');
+    const id = runningId(theme);
+    theme.requestShift('day'); // encola
+    theme.requestShift('night'); // vuelve al destino en curso: descarta lo encolado
+    expect(theme.selectedShift()).toBe('night');
+
+    theme.completeTransition(id);
+    expect(theme.transition()).toBeNull();
+    expect(theme.shift()).toBe('night');
+  });
+
+  it('si la atmósfera deja de estar disponible a mitad, aplica ya el destino', () => {
+    const theme = setup();
+    theme.requestShift('night');
+
+    TestBed.inject(MotionService).setBackgroundAvailable(false);
+    TestBed.tick();
+
+    expect(theme.transition()).toBeNull();
+    expect(theme.shift()).toBe('night');
+    expect(html.classList).toContain(NIGHT_CLASS);
   });
 });

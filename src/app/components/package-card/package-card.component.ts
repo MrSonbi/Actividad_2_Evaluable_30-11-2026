@@ -1,5 +1,5 @@
 import { DatePipe, DecimalPipe } from '@angular/common';
-import { ChangeDetectionStrategy, Component, computed, input, output } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, input, linkedSignal, output } from '@angular/core';
 import { IonBadge, IonButton, IonIcon, IonLabel } from '@ionic/angular';
 import { addIcons } from 'ionicons';
 import { barbellOutline, carOutline, checkmarkCircleOutline, closeCircleOutline } from 'ionicons/icons';
@@ -24,6 +24,9 @@ import { HEAVY_LOAD_KG, PRIORITY_DISPLAY, STATUS_DISPLAY } from '../../shared/pa
     '[class.package-card--in-transit]': 'isInTransit()',
     '[class.package-card--inspected]': 'isInspected()',
     '[class.package-card--rejected]': 'isRejected()',
+    '[class.package-card--flash-in-transit]': "flashStatus() === 'IN_TRANSIT'",
+    '[class.package-card--flash-inspected]': "flashStatus() === 'INSPECTED'",
+    '[class.package-card--flash-rejected]': "flashStatus() === 'REJECTED'",
   },
 })
 export class PackageCardComponent {
@@ -39,6 +42,17 @@ export class PackageCardComponent {
   readonly isInTransit = computed(() => this.pkg().status === 'IN_TRANSIT');
   readonly isInspected = computed(() => this.pkg().status === 'INSPECTED');
   readonly isRejected = computed(() => this.pkg().status === 'REJECTED');
+
+  /**
+   * Estado al que acaba de cambiar el paquete (null hasta el primer cambio): activa el destello de color (CSS en
+   * global.scss). En el primer render no hay valor previo, así que no destella; cada cambio pone una clase distinta
+   * y la animación se reinicia.
+   */
+  readonly flashStatus = linkedSignal<PackageStatus, PackageStatus | null>({
+    source: () => this.pkg().status,
+    computation: (status, previous) =>
+      previous === undefined ? null : previous.source !== status ? status : previous.value,
+  });
 
   constructor() {
     addIcons({ barbellOutline, carOutline, checkmarkCircleOutline, closeCircleOutline });

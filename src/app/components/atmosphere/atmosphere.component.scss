@@ -1,0 +1,28 @@
+// El host no crea caja ni contexto de apilamiento: cada canvas se coloca en su propio nivel respecto a la app.
+:host {
+  display: contents;
+}
+
+canvas {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+// Detrás de ion-app y por encima de body::before (el cielo): mismo nivel, pero va después en el documento.
+.atmosphere__fog {
+  z-index: -1;
+}
+
+// Por encima de todo (también de los overlays de Ionic) mientras dura la oleada; pointer-events: none deja los
+// botones operables. Fuera de la transición está oculta (atributo hidden) y no se compone.
+.atmosphere__surge {
+  z-index: 2147483000;
+  opacity: 0;
+}
+
+.atmosphere__surge[hidden] {
+  display: none;
+}

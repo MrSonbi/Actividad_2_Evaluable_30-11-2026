@@ -1,6 +1,7 @@
 import {
   ChangeDetectionStrategy,
   Component,
+  DestroyRef,
   afterNextRender,
   computed,
   inject,
@@ -30,7 +31,7 @@ import {
 } from '@ionic/angular';
 import type { SegmentCustomEvent } from '@ionic/angular';
 import { addIcons } from 'ionicons';
-import { checkmarkCircleOutline, closeCircleOutline, fileTrayOutline } from 'ionicons/icons';
+import { checkmarkCircleOutline, closeCircleOutline, fileTrayOutline, pauseOutline, playOutline } from 'ionicons/icons';
 import type { Observable } from 'rxjs';
 import { debounceTime, distinctUntilChanged, map, of, switchMap } from 'rxjs';
 
@@ -38,6 +39,7 @@ import { PackageCardComponent } from '../components/package-card/package-card.co
 import { ShiftToggleComponent } from '../components/shift-toggle/shift-toggle.component';
 import { PACKAGE_PRIORITIES, PACKAGE_STATUSES } from '../models/package.model';
 import type { PackagePriority, PackageStatus, StatusChangeEvent, WarehousePackage } from '../models/package.model';
+import { MotionService } from '../services/motion.service';
 import { PackageService } from '../services/package.service';
 import { ThemeService } from '../services/theme.service';
 import type { Shift } from '../services/theme.service';
@@ -45,6 +47,12 @@ import { PRIORITY_DISPLAY, PRIORITY_ORDER, STATUS_DISPLAY, STATUS_ORDER } from '
 
 /** Nombre accesible del input interno de ion-searchbar. */
 export const SEARCH_INPUT_LABEL = 'Buscar paquete por código de seguimiento';
+
+/**
+ * Duración de la entrada escalonada de las tarjetas en el primer render (ms): 10 escalones de 40 ms + 280 ms de
+ * animación, con margen. Después se retira la clase y las tarjetas que aparecen (filtros) ya no se animan.
+ */
+export const INTRO_MS = 720;
 
 /** Espera tras la última pulsación antes de lanzar la búsqueda (ms). */
 export const SEARCH_DEBOUNCE_MS = 300;
@@ -106,9 +114,23 @@ export function isPriorityFilter(value: unknown): value is PriorityFilter {
 export class HomePage {
   private readonly packageService = inject(PackageService);
   private readonly themeService = inject(ThemeService);
+  private readonly motion = inject(MotionService);
 
-  /** Turno visual activo (Día / Noche); lo muestra el selector de la cabecera. */
-  readonly shift = this.themeService.shift.asReadonly();
+  /** Modo elegido (Claro / Oscuro): el selector lo marca desde el clic, aunque la transición siga en curso. */
+  readonly shift = this.themeService.selectedShift;
+
+  /** Fondo animado en pausa (WCAG 2.2.2). */
+  readonly backgroundPaused = this.motion.backgroundPaused;
+  /**
+   * El botón de pausa solo aparece si hay algo que pausar: con la niebla WebGL funcionando y sin reduced motion
+   * (con reduced motion el fondo ya está quieto y reanudarlo no tendría efecto).
+   */
+  readonly showMotionToggle = computed(() => this.motion.backgroundAvailable() && !this.motion.reducedMotion());
+  readonly motionToggleLabel = computed(() => (this.backgroundPaused() ? 'Reanudar fondo' : 'Pausar fondo'));
+  readonly motionToggleIcon = computed(() => (this.backgroundPaused() ? 'play-outline' : 'pause-outline'));
+
+  /** Entrada escalonada de las tarjetas: solo durante el primer render. */
+  readonly introActive = signal(true);
 
   /** Buscador de la cabecera; se usa solo para dar nombre accesible a su input interno. */
   private readonly searchbar = viewChild.required(IonSearchbar);
@@ -206,7 +228,14 @@ export class HomePage {
   readonly toastMessage = signal('');
 
   constructor() {
-    addIcons({ checkmarkCircleOutline, closeCircleOutline, fileTrayOutline });
+    addIcons({ checkmarkCircleOutline, closeCircleOutline, fileTrayOutline, pauseOutline, playOutline });
+
+    // Fin de la entrada escalonada; el temporizador se cancela si la página se destruye antes.
+    let introTimer: ReturnType<typeof setTimeout> | undefined;
+    afterNextRender(() => {
+      introTimer = setTimeout(() => this.introActive.set(false), INTRO_MS);
+    });
+    inject(DestroyRef).onDestroy(() => clearTimeout(introTimer));
 
     // ion-searchbar 9.0.12 no traslada el aria-label del host a su input y le fija "search text" (inglés).
     // Se corrige una sola vez tras el primer render con la API pública getInputElement(): no hay suscripciones
@@ -232,7 +261,12 @@ export class HomePage {
 
   /** El operario cambia de turno en el selector de la cabecera. */
   onShiftChange(shift: Shift): void {
-    this.themeService.setShift(shift);
+    this.themeService.requestShift(shift);
+  }
+
+  /** Botón «Pausar fondo» / «Reanudar fondo». */
+  toggleBackground(): void {
+    this.motion.toggleBackgroundPaused();
   }
 
   /** Restablece búsqueda y filtro de prioridad. */

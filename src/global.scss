@@ -248,9 +248,19 @@ ion-segment-button.segment-button-checked.ion-focused::part(native) {
 // `.item-sliding-active-slide`; las opciones solo se muestran en ese estado), detrás del cristal se pinta el cielo
 // de forma opaca para que la tarjeta tape por completo las opciones. En reposo no se aplica: el aspecto no cambia.
 // (Siempre activo no valía: el fondo `fixed` dentro de la página de Ionic no coincide al píxel con body::before.)
-ion-item-sliding.item-sliding-active-slide > ion-item {
+// `:root` delante: debe ganar al `border-radius: 16px` de `.package-list__item` en la página ((0,2,0) con el atributo
+// de Angular); con (0,2,2) prevalece sin !important.
+:root ion-item-sliding.item-sliding-active-slide > ion-item {
   background: var(--lt-sky);
   background-attachment: fixed;
+  // Esquinas rectas mientras se desliza: el relleno opaco tapa también las cuñas entre las esquinas redondeadas de
+  // la tarjeta y las opciones. El contenedor (radio 16 + overflow: hidden de Ionic) recorta el conjunto con el
+  // mismo radio que la tarjeta, así que por fuera no se ve ninguna esquina recta.
+  border-radius: 0;
+}
+
+ion-item-sliding {
+  border-radius: 16px;
 }
 
 // Opciones deslizantes: superan con margen el mínimo de 44 × 44 px; radio 12 y sin mayúsculas.
@@ -313,4 +323,117 @@ ion-button {
 
 .brand-logo__right {
   fill: #c3d36a; // cara en sombra de la lima
+}
+
+/**
+ * Fila del recuento con el botón «Pausar fondo» / «Reanudar fondo» (WCAG 2.2.2) a la derecha.
+ */
+.list-header__row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px 12px;
+}
+
+.motion-toggle {
+  --color: var(--lt-ink);
+  --padding-start: 8px;
+  --padding-end: 8px;
+  min-height: 44px; // objetivo táctil
+  margin: 4px 0 0;
+  font-size: 0.8125rem;
+}
+
+/**
+ * Microinteracciones
+ * -----------------------------------------------------
+ * Solo transform y opacity (sin recálculo de layout) y solo si el sistema no pide reducir el movimiento: con
+ * prefers-reduced-motion: reduce nada de esto existe.
+ */
+@media (prefers-reduced-motion: no-preference) {
+  // Entrada escalonada de las tarjetas en el primer render (HomePage retira la clase al terminar).
+  .package-list--intro > ion-item-sliding {
+    animation: lt-card-in 280ms cubic-bezier(0.2, 0.7, 0.2, 1) both;
+    animation-delay: calc(min(var(--i, 0), 10) * 40ms);
+  }
+
+  // Respuesta táctil: ligera reducción al pulsar.
+  ion-button,
+  ion-item-option,
+  .shift-toggle__option {
+    transition: transform 120ms ease-out;
+  }
+
+  ion-button:active,
+  ion-item-option:active,
+  .shift-toggle__option:active {
+    transform: scale(0.97);
+  }
+
+  // Destello del color del nuevo estado (600 ms). Un nombre de animación por estado: cada cambio la reinicia.
+  .package-card--flash-in-transit::after {
+    animation: lt-flash-in-transit 600ms ease-out;
+  }
+
+  .package-card--flash-inspected::after {
+    animation: lt-flash-inspected 600ms ease-out;
+  }
+
+  .package-card--flash-rejected::after {
+    animation: lt-flash-rejected 600ms ease-out;
+  }
+}
+
+// Elevación sutil de la tarjeta al pasar el ratón, solo en dispositivos con hover real.
+@media (hover: hover) and (prefers-reduced-motion: no-preference) {
+  app-package-card {
+    transition: transform 160ms ease-out;
+  }
+
+  .package-list__item:hover app-package-card {
+    transform: translateY(-2px);
+  }
+}
+
+// Capa del destello: el color de estado de la tarjeta (--lt-card-mark), por debajo de su contenido.
+app-package-card {
+  position: relative;
+  isolation: isolate;
+}
+
+app-package-card::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  background: var(--lt-card-mark);
+  opacity: 0;
+  pointer-events: none;
+}
+
+@keyframes lt-card-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}
+
+@keyframes lt-flash-in-transit {
+  30% {
+    opacity: 0.28;
+  }
+}
+
+@keyframes lt-flash-inspected {
+  30% {
+    opacity: 0.28;
+  }
+}
+
+@keyframes lt-flash-rejected {
+  30% {
+    opacity: 0.28;
+  }
 }
