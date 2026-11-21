@@ -335,44 +335,51 @@ describe('HomePage', () => {
       return host.querySelector('ion-button.motion-toggle');
     }
 
+    /** Icono del botón: `[name]` se enlaza como propiedad de ion-icon (no se refleja como atributo). */
+    function iconName(button: HTMLIonButtonElement): string | undefined {
+      return button.querySelector('ion-icon')?.name;
+    }
+
     /**
-     * aria-pressed enlazado por Angular en el host. Ionic lo traslada al <button> interno con un MutationObserver
-     * (comprobado en Chrome: el interno sigue cada cambio); en jsdom ese re-render no llega a ejecutarse, así que se
-     * lee el host y, solo si Ionic ya lo ha retirado de él, el interno.
+     * Es un botón de acción cuyo texto cambia, así que no debe exponer aria-pressed (ni en el host ni en el
+     * <button> interno al que Ionic traslada los atributos ARIA).
      */
-    function pressed(button: HTMLIonButtonElement): string | null {
-      return (
-        button.getAttribute('aria-pressed') ??
-        button.shadowRoot?.querySelector('button')?.getAttribute('aria-pressed') ??
-        null
-      );
+    function expectNoPressedState(button: HTMLIonButtonElement): void {
+      expect(button.hasAttribute('aria-pressed')).toBe(false);
+      expect(button.shadowRoot?.querySelector('button')?.hasAttribute('aria-pressed') ?? false).toBe(false);
     }
 
     it('no aparece si no hay atmósfera WebGL (nada que pausar)', () => {
       expect(motionToggle()).toBeNull();
     });
 
-    it('con la atmósfera en marcha: «Pausar fondo», aria-pressed y la elección se guarda', async () => {
-      TestBed.inject(MotionService).setBackgroundAvailable(true);
+    it('con la atmósfera en marcha: texto e icono cambian, sin aria-pressed, y la elección se guarda', async () => {
+      const motion = TestBed.inject(MotionService);
+      motion.setBackgroundAvailable(true);
       await settle();
       const button = motionToggle();
       if (!button) throw new Error('Botón de pausa no encontrado');
       expect(button.textContent?.trim()).toBe('Pausar fondo');
-      expect(pressed(button)).toBe('false');
+      expect(iconName(button)).toBe('pause-outline');
+      expectNoPressedState(button);
       expect(button.closest('.list-header')).not.toBeNull(); // en la fila del recuento, no en la cabecera
       expect(button.querySelector('ion-icon')?.getAttribute('aria-hidden')).toBe('true');
 
       button.click();
       await settle();
 
-      expect(TestBed.inject(MotionService).backgroundPaused()).toBe(true);
+      expect(motion.backgroundPaused()).toBe(true);
       expect(button.textContent?.trim()).toBe('Reanudar fondo');
-      expect(pressed(button)).toBe('true');
+      expect(iconName(button)).toBe('play-outline');
+      expectNoPressedState(button);
       expect(localStorage.getItem(MOTION_PAUSED_STORAGE_KEY)).toBe('true');
 
       button.click();
       await settle();
+      expect(motion.backgroundPaused()).toBe(false);
       expect(button.textContent?.trim()).toBe('Pausar fondo');
+      expect(iconName(button)).toBe('pause-outline');
+      expectNoPressedState(button);
       expect(localStorage.getItem(MOTION_PAUSED_STORAGE_KEY)).toBe('false');
     });
   });

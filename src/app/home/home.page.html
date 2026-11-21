@@ -56,14 +56,12 @@
         }
       </p>
       @if (showMotionToggle()) {
-        <!-- WCAG 2.2.2: el fondo se mueve de forma continua, así que se puede pausar. -->
-        <ion-button
-          class="motion-toggle"
-          fill="clear"
-          size="small"
-          [attr.aria-pressed]="backgroundPaused()"
-          (click)="toggleBackground()"
-        >
+        <!--
+          WCAG 2.2.2: el fondo se mueve de forma continua, así que se puede pausar. Botón de acción: el texto
+          cambia ("Pausar fondo" / "Reanudar fondo") y por eso no lleva aria-pressed (se anunciaría un estado
+          contradictorio con la etiqueta).
+        -->
+        <ion-button class="motion-toggle" fill="clear" size="small" (click)="toggleBackground()">
           <ion-icon slot="start" [name]="motionToggleIcon()" aria-hidden="true"></ion-icon>
           {{ motionToggleLabel() }}
         </ion-button>

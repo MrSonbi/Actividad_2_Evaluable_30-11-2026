@@ -18,12 +18,11 @@
 @import "@ionic/angular/css/typography.css";
 @import "@ionic/angular/css/display.css";
 
-/* Optional CSS utils that can be commented out */
-@import "@ionic/angular/css/padding.css";
-@import "@ionic/angular/css/float-elements.css";
-@import "@ionic/angular/css/text-alignment.css";
-@import "@ionic/angular/css/text-transformation.css";
-@import "@ionic/angular/css/flex-utils.css";
+/*
+ * Utilidades CSS opcionales de Ionic (padding, float-elements, text-alignment, text-transformation, flex-utils):
+ * no se importan porque la app no usa ninguna de sus clases (.ion-padding, .ion-text-*, .ion-justify-*…) ni las
+ * usan los componentes de Ionic incluidos en el bundle. Ahorran ~22 kB de CSS global (Fase 8).
+ */
 
 /**
  * Ionic Dark Mode
