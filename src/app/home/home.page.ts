@@ -1,193 +1,80 @@
+import { Component, inject } from '@angular/core';
+import { CommonModule } from '@angular/common';
+import { FormControl, ReactiveFormsModule } from '@angular/forms';
 import {
-  ChangeDetectionStrategy,
-  Component,
-  afterNextRender,
-  computed,
-  inject,
-  signal,
-  viewChild,
-} from '@angular/core';
-import { FormsModule } from '@angular/forms';
-import {
-  IonBadge,
-  IonButton,
-  IonContent,
   IonHeader,
-  IonIcon,
-  IonItem,
-  IonItemOption,
-  IonItemOptions,
-  IonItemSliding,
-  IonLabel,
-  IonList,
-  IonSearchbar,
-  IonSegment,
-  IonSegmentButton,
-  IonTitle,
-  IonToast,
   IonToolbar,
+  IonTitle,
+  IonContent,
+  IonSearchbar,
+  IonList,
+  IonItem,
+  IonLabel,
+  IonBadge,
+  IonNote,
 } from '@ionic/angular';
-import type { SegmentCustomEvent } from '@ionic/angular';
-import { addIcons } from 'ionicons';
-import { checkmarkCircleOutline, closeCircleOutline, fileTrayOutline } from 'ionicons/icons';
+import { Observable } from 'rxjs';
+import {
+  debounceTime,
+  distinctUntilChanged,
+  map,
+  startWith,
+  switchMap,
+} from 'rxjs/operators';
 
-import { PackageCardComponent } from '../components/package-card/package-card.component';
-import { PACKAGE_PRIORITIES, PACKAGE_STATUSES } from '../models/package.model';
-import type { PackagePriority, PackageStatus, StatusChangeEvent, WarehousePackage } from '../models/package.model';
+import { WarehousePackage } from '../models/package.model';
 import { PackageService } from '../services/package.service';
-import { PRIORITY_DISPLAY, PRIORITY_ORDER, STATUS_DISPLAY, STATUS_ORDER } from '../shared/package-display';
 
-/** Nombre accesible del input interno de ion-searchbar. */
-export const SEARCH_INPUT_LABEL = 'Buscar paquete por código de seguimiento';
-
-/** Filtro de prioridad de la vista: una prioridad concreta o todas. */
-export type PriorityFilter = PackagePriority | 'ALL';
-
-/** Comprueba en tiempo de ejecución que un valor (p. ej. el de ion-segment) es un filtro válido. */
-export function isPriorityFilter(value: unknown): value is PriorityFilter {
-  return value === 'ALL' || PACKAGE_PRIORITIES.some((priority) => priority === value);
-}
-
-/** ViewModel de la cola de paquetes: prepara los datos para la plantilla y delega los cambios al servicio. */
 @Component({
   selector: 'app-home',
   templateUrl: 'home.page.html',
   styleUrls: ['home.page.scss'],
-  changeDetection: ChangeDetectionStrategy.OnPush,
+  standalone: true,
   imports: [
-    FormsModule,
-    IonBadge,
-    IonButton,
-    IonContent,
+    CommonModule,
+    ReactiveFormsModule,
     IonHeader,
-    IonIcon,
-    IonItem,
-    IonItemOption,
-    IonItemOptions,
-    IonItemSliding,
-    IonLabel,
-    IonList,
-    IonSearchbar,
-    IonSegment,
-    IonSegmentButton,
-    IonTitle,
-    IonToast,
     IonToolbar,
-    PackageCardComponent,
+    IonTitle,
+    IonContent,
+    IonSearchbar,
+    IonList,
+    IonItem,
+    IonLabel,
+    IonBadge,
+    IonNote,
   ],
 })
 export class HomePage {
   private readonly packageService = inject(PackageService);
 
-  /** Buscador de la cabecera; se usa solo para dar nombre accesible a su input interno. */
-  private readonly searchbar = viewChild.required(IonSearchbar);
+  // Control reactivo vinculado al ion-searchbar
+  searchControl = new FormControl('', { nonNullable: true });
 
-  /** Texto escrito en el buscador (enlazado con ngModel). */
-  readonly searchTerm = signal('');
-  /** Prioridad seleccionada en el segmento. */
-  readonly priorityFilter = signal<PriorityFilter>('ALL');
-
-  /** Término normalizado: sin espacios en los extremos y en minúsculas. */
-  private readonly normalizedTerm = computed(() => this.searchTerm().trim().toLowerCase());
-
-  /**
-   * Cola completa ordenada: primero los pendientes (IN_TRANSIT); dentro de cada grupo, por prioridad
-   * y después por hora de registro (más antiguo primero).
-   */
-  readonly packages = computed<readonly WarehousePackage[]>(() =>
-    // Copia antes de ordenar: el array del servicio nunca se modifica.
-    [...this.packageService.packages()].sort(
-      (a, b) =>
-        STATUS_ORDER[a.status] - STATUS_ORDER[b.status] ||
-        PRIORITY_ORDER[a.priority] - PRIORITY_ORDER[b.priority] ||
-        a.timestamp.getTime() - b.timestamp.getTime(),
-    ),
+  // Flujo reactivo de paquetes filtrados
+  filteredPackages$: Observable<WarehousePackage[]> = this.searchControl.valueChanges.pipe(
+    startWith(''), // Emite un valor inicial para cargar toda la lista al entrar
+    map((term) => term.trim().toLowerCase()),
+    debounceTime(300), // Espera 300ms tras la última pulsación
+    distinctUntilChanged(), // Evita peticiones duplicadas si el término limpio no cambió
+    switchMap((cleanTerm) => this.filterPackages(cleanTerm))
   );
 
-  /** Paquetes que cumplen el filtro de prioridad y la búsqueda parcial por código (sin distinguir mayúsculas). */
-  readonly visiblePackages = computed<readonly WarehousePackage[]>(() => {
-    const priority = this.priorityFilter();
-    const term = this.normalizedTerm();
-    return this.packages().filter(
-      (pkg) =>
-        (priority === 'ALL' || pkg.priority === priority) &&
-        (term === '' || pkg.trackingCode.toLowerCase().includes(term)),
-    );
-  });
-
-  /** Indica si algún filtro está reduciendo la lista. */
-  readonly hasActiveFilters = computed(() => this.priorityFilter() !== 'ALL' || this.normalizedTerm() !== '');
-
-  readonly resultCount = computed(() => this.visiblePackages().length);
-  readonly resultCountLabel = computed(() => {
-    const count = this.resultCount();
-    return `${count} ${count === 1 ? 'paquete' : 'paquetes'}`;
-  });
-
-  /** Recuentos globales por estado (no dependen de los filtros). */
-  readonly statusCounts = this.packageService.statusCounts;
-
-  readonly statuses = PACKAGE_STATUSES;
-  readonly priorities = PACKAGE_PRIORITIES;
-  readonly statusDisplay = STATUS_DISPLAY;
-  readonly priorityDisplay = PRIORITY_DISPLAY;
-
-  /** Toast de confirmación tras un cambio de estado. */
-  readonly toastOpen = signal(false);
-  readonly toastMessage = signal('');
-
-  constructor() {
-    addIcons({ checkmarkCircleOutline, closeCircleOutline, fileTrayOutline });
-
-    // ion-searchbar 9.0.12 no traslada el aria-label del host a su input y le fija "search text" (inglés).
-    // Se corrige una sola vez tras el primer render con la API pública getInputElement(): no hay suscripciones
-    // ni listeners que liberar. Stencil no vuelve a escribir el atributo porque su valor en el vDOM no cambia.
-    afterNextRender(() => {
-      void this.labelSearchInput();
-    });
-  }
-
-  /** Nombre accesible en español para el input interno del buscador (WCAG 3.1.2 / 2.5.3). */
-  private async labelSearchInput(): Promise<void> {
-    const input = await this.searchbar().getInputElement();
-    input.setAttribute('aria-label', SEARCH_INPUT_LABEL);
-  }
-
-  /** Aplica la prioridad elegida en el segmento; ignora valores no válidos. */
-  onPriorityChange(event: SegmentCustomEvent): void {
-    const value = event.detail.value;
-    if (isPriorityFilter(value)) {
-      this.priorityFilter.set(value);
-    }
-  }
-
-  /** Restablece búsqueda y filtro de prioridad. */
-  clearFilters(): void {
-    this.searchTerm.set('');
-    this.priorityFilter.set('ALL');
-  }
-
   /**
-   * Único punto que escribe en el servicio: lo usan las tarjetas (`statusChange`) y las opciones deslizantes.
-   * Solo confirma con un toast si el estado cambió de verdad.
+   * Obtiene los paquetes del servicio y los filtra por trackingCode.
+   * Si PackageService ya tiene un método de búsqueda en backend (ej. searchByTracking),
+   * puedes llamarlo directamente aquí dentro del switchMap.
    */
-  onStatusChange(event: StatusChangeEvent): void {
-    const pkg = this.packageService.packages().find((item) => item.id === event.id);
-    if (!pkg || !this.packageService.updateStatus(event.id, event.newStatus)) {
-      return;
-    }
-    this.toastMessage.set(`${pkg.trackingCode} marcado como ${STATUS_DISPLAY[event.newStatus].label}`);
-    this.toastOpen.set(true);
-  }
-
-  /** Opción deslizante: cierra el item y delega en `onStatusChange`. */
-  async onSlidingOption(id: string, newStatus: PackageStatus, slidingItem: IonItemSliding): Promise<void> {
-    await slidingItem.close();
-    this.onStatusChange({ id, newStatus });
-  }
-
-  /** El toast se cerró (por tiempo o gesto): se sincroniza el estado para poder volver a abrirlo. */
-  onToastDismiss(): void {
-    this.toastOpen.set(false);
+  private filterPackages(searchTerm: string): Observable<WarehousePackage[]> {
+    return this.packageService.getPackages().pipe(
+      map((packages) => {
+        if (!searchTerm) {
+          return packages;
+        }
+        return packages.filter((pkg) =>
+          pkg.trackingCode.toLowerCase().includes(searchTerm)
+        );
+      })
+    );
   }
 }

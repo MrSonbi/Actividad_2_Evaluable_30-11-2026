@@ -1,7 +1,12 @@
 import { Injectable, computed, signal } from '@angular/core';
+import type { Observable } from 'rxjs';
+import { delay, of } from 'rxjs';
 
 import { MOCK_PACKAGES } from '../data/packages.mock';
 import type { PackageStatus, WarehousePackage } from '../models/package.model';
+
+/** Latencia simulada de `getPackages()` (ms). Solo para el experimento de la rama `ia/original`. */
+export const SIMULATED_LATENCY_MS = 200;
 
 /**
  * Fuente única de verdad de los paquetes del almacén.
@@ -42,5 +47,17 @@ export class PackageService {
       packages.map((pkg) => (pkg.id === id ? { ...pkg, status: newStatus } : pkg)),
     );
     return true;
+  }
+
+  /**
+   * ADAPTACIÓN PARA EL EXPERIMENTO (Tarea 5, rama `ia/original`): no forma parte del diseño del servicio.
+   *
+   * El código generado por la IA supone un `getPackages()` que "realiza una petición HTTP". Se simula ese
+   * comportamiento: un observable frío que, al suscribirse, emite UNA instantánea (copia) de los paquetes
+   * tras `SIMULATED_LATENCY_MS` ms y se completa. No sigue los cambios posteriores del estado.
+   * Devuelve un array mutable (copia) porque la IA tipa el resultado como `WarehousePackage[]`.
+   */
+  getPackages(): Observable<WarehousePackage[]> {
+    return of([...this.packagesState()]).pipe(delay(SIMULATED_LATENCY_MS));
   }
 }
